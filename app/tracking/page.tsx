@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Map, Marker, Overlay } from "pigeon-maps";
 
-// --- Static Driver Data ---
+// --- Static Driver Data with Safety Notifications ---
 const drivers = [
   {
     id: 1,
@@ -14,6 +14,7 @@ const drivers = [
       { name: "City Storage Yard", reached: false, time: null },
       { name: "Petroleum Plant", reached: false, time: null },
     ],
+    safetyNotification: null,
   },
   {
     id: 2,
@@ -25,6 +26,7 @@ const drivers = [
       { name: "Fuel Distribution Center", reached: false, time: null },
       { name: "Industrial Refinery", reached: false, time: null },
     ],
+    safetyNotification: "⚠️ Engine overheating detected near Toll Plaza",
   },
   {
     id: 3,
@@ -35,9 +37,129 @@ const drivers = [
       { name: "Offshore Checkpoint", reached: false, time: null },
       { name: "Main Harbor Storage", reached: false, time: null },
     ],
+    safetyNotification: "⚠️ Minor oil leakage observed at port dock",
   },
 ];
 
+// --- Driver List Component ---
+function DriverList({ drivers, selectedDriver, onSelect }: any) {
+  return (
+    <aside className="w-1/5 bg-white p-4 rounded-lg shadow border border-gray-200">
+      <h2 className="text-lg font-semibold mb-4 text-gray-800">Drivers</h2>
+      {drivers.map((driver: any) => (
+        <div
+          key={driver.id}
+          className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${
+            selectedDriver.id === driver.id
+              ? "bg-blue-700 text-white shadow border-blue-800 "
+              : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
+          }`}
+          onClick={() => onSelect(driver)}
+        >
+          {driver.name}
+        </div>
+      ))}
+    </aside>
+  );
+}
+
+// --- Map Panel Component ---
+function MapPanel({ driver }: any) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-4 rounded-lg shadow bg-white border border-gray-200">
+      <div className="w-full h-[80%] rounded-lg overflow-hidden border border-gray-300">
+        <Map
+          height={window.innerHeight * 0.65}
+          defaultCenter={driver.location as [number, number]}
+          center={driver.location as [number, number]}
+          defaultZoom={15}
+        >
+          <Marker anchor={driver.location as [number, number]}>
+            <div className="w-8 h-8 bg-blue-700 text-white rounded-full flex items-center justify-center font-bold shadow">
+              {driver.name.split(" ")[1][0]}
+            </div>
+          </Marker>
+          <Overlay
+            anchor={driver.location as [number, number]}
+            offset={[60, 20]}
+          ></Overlay>
+        </Map>
+      </div>
+      <p className="mt-3 text-gray-600 text-sm italic">
+        Viewing live location of{" "}
+        <span className="font-semibold text-gray-900">{driver.name}</span>
+      </p>
+    </div>
+  );
+}
+
+// --- Checkpoint Panel Component ---
+function CheckpointPanel({ checkpoints, onVerify }: any) {
+  return (
+    <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[70%] flex flex-col">
+      {/* Fixed Header */}
+      <h2 className="text-lg font-semibold mb-4 text-gray-800 shrink-0">
+        Progress Checkpoints
+      </h2>
+
+      {/* Scrollable Checkpoint List */}
+      <div className="relative flex-1 overflow-y-auto pr-2">
+        {checkpoints.map((cp: any, index: number) => (
+          <div key={index} className="flex items-start relative">
+            {/* Connector line */}
+            {index !== checkpoints.length - 1 && (
+              <div
+                className={`absolute left-3 top-6 w-0.5 h-full ${
+                  cp.reached ? "bg-green-500" : "bg-gray-300"
+                }`}
+              ></div>
+            )}
+
+            {/* Circle */}
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center z-10 
+              ${cp.reached ? "bg-green-500 text-white" : "bg-gray-400 text-white"}`}
+            ></div>
+
+            {/* Label + Time */}
+            <div className="ml-4 pb-8">
+              <p className="font-medium text-gray-900">{cp.name}</p>
+              {cp.time && <p className="text-sm text-gray-500">{cp.time}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Fixed Button */}
+      <button
+        onClick={onVerify}
+        className="w-full mt-4 bg-blue-700 text-white py-2 rounded-lg shadow hover:bg-blue-800 transition shrink-0"
+      >
+        Verify Next Checkpoint
+      </button>
+    </div>
+  );
+}
+
+// --- Safety Panel Component ---
+function SafetyPanel({ safetyMessage }: any) {
+  return (
+    <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[30%] mt-4">
+      <h2 className="text-lg font-semibold mb-4 text-gray-800">
+        Safety Notifications
+      </h2>
+      {safetyMessage ? (
+        <p className="text-red-600 font-medium">{safetyMessage}</p>
+      ) : (
+        <p className="text-green-600 font-medium">
+          ✅ No safety notifications raised
+        </p>
+      )}
+    </div>
+  );
+}
+
+// --- Main App Component ---
 export default function App() {
   const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
 
@@ -48,7 +170,6 @@ export default function App() {
       }
       return cp;
     });
-
     setSelectedDriver({ ...selectedDriver, checkpoints: updatedCheckpoints });
   };
 
@@ -66,88 +187,22 @@ export default function App() {
 
       {/* MAIN CONTENT */}
       <div className="flex flex-1 space-x-4">
-        {/* LEFT PANEL */}
-        <aside className="w-1/5 bg-white p-4 rounded-lg shadow flex flex-col border border-gray-200">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Drivers</h2>
-          {drivers.map((driver) => (
-            <div
-              key={driver.id}
-              className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${
-                selectedDriver.id === driver.id
-                  ? "bg-blue-400 text-white shadow border-blue-600 "
-                  : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
-              }`}
-              onClick={() => setSelectedDriver(driver)}
-            >
-              {driver.name}
-            </div>
-          ))}
-        </aside>
+        <DriverList
+          drivers={drivers}
+          selectedDriver={selectedDriver}
+          onSelect={setSelectedDriver}
+        />
 
-        {/* MAP SECTION */}
-        <main className="flex-1 flex flex-col items-center justify-center p-4 rounded-lg shadow bg-white border border-gray-200">
-          <div className="w-full h-[80%] rounded-lg overflow-hidden border border-gray-300">
-            <Map
-              height={window.innerHeight * 0.65}
-              defaultCenter={selectedDriver.location as [number, number]}
-              center={selectedDriver.location as [number, number]}
-              defaultZoom={18}
-            >
-              <Marker anchor={selectedDriver.location as [number, number]} />
-              <Overlay
-                anchor={selectedDriver.location as [number, number]}
-                offset={[60, 20]}
-              >
-              </Overlay>
-            </Map>
-          </div>
-          <p className="mt-3 text-gray-600 text-sm italic">
-            Viewing live location of{" "}
-            <span className="font-semibold text-gray-900">{selectedDriver.name}</span>
-          </p>
-        </main>
-        {/* RIGHT PANEL */}
-      <aside className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-6 text-gray-800">
-          Progress Checkpoints
-        </h2>
+        <MapPanel driver={selectedDriver} />
 
-        <div className="relative">
-          {selectedDriver.checkpoints.map((cp, index) => (
-            <div key={index} className="flex items-start relative">
-              {/* Connector line */}
-              {index !== selectedDriver.checkpoints.length - 1 && (
-                <div
-                  className={`absolute left-3 top-6 w-0.5 h-full ${
-                    cp.reached ? "bg-green-500" : "bg-gray-300"
-                  }`}
-                ></div>
-              )}
-
-              {/* Circle */}
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center z-10 
-                ${cp.reached ? "bg-green-500 text-white" : "bg-gray-400 text-white"}`}
-              >
-              </div>
-
-              {/* Label + Time */}
-              <div className="ml-4 pb-8">
-                <p className="font-medium text-gray-900">{cp.name}</p>
-                {cp.time && (
-                  <p className="text-sm text-gray-500">{cp.time}</p>
-                )}
-              </div>
-            </div>
-          ))}
+        {/* Right side stacked panels with fixed height split */}
+        <div className="w-1/4 flex flex-col h-full">
+          <CheckpointPanel
+            checkpoints={selectedDriver.checkpoints}
+            onVerify={handleVerifyCheckpoint}
+          />
+          <SafetyPanel safetyMessage={selectedDriver.safetyNotification} />
         </div>
-          <button
-            onClick={handleVerifyCheckpoint}
-            className="w-full mt-6 bg-blue-700 text-white py-2 rounded-lg shadow hover:bg-blue-800 transition"
-          >
-            Verify Next Checkpoint
-          </button>
-        </aside>
       </div>
     </div>
   );
