@@ -1,103 +1,154 @@
-import Image from "next/image";
+'use client'
+import React, { useState } from "react";
+import { Map, Marker, Overlay } from "pigeon-maps";
 
-export default function Home() {
+// --- Static Driver Data ---
+const drivers = [
+  {
+    id: 1,
+    name: "Driver A - Petrol Tanker",
+    location: [28.6139, 77.209], // Delhi
+    checkpoints: [
+      { name: "Depot", reached: true, time: "09:00 AM" },
+      { name: "Highway Checkpoint", reached: true, time: "11:15 AM" },
+      { name: "City Storage Yard", reached: false, time: null },
+      { name: "Petroleum Plant", reached: false, time: null },
+    ],
+  },
+  {
+    id: 2,
+    name: "Driver B - Diesel Truck",
+    location: [19.076, 72.8777], // Mumbai
+    checkpoints: [
+      { name: "Depot", reached: true, time: "08:30 AM" },
+      { name: "Toll Plaza", reached: true, time: "10:10 AM" },
+      { name: "Fuel Distribution Center", reached: false, time: null },
+      { name: "Industrial Refinery", reached: false, time: null },
+    ],
+  },
+  {
+    id: 3,
+    name: "Driver C - LPG Ship",
+    location: [13.0827, 80.2707], // Chennai
+    checkpoints: [
+      { name: "Port Dock", reached: true, time: "07:45 AM" },
+      { name: "Offshore Checkpoint", reached: false, time: null },
+      { name: "Main Harbor Storage", reached: false, time: null },
+    ],
+  },
+];
+
+export default function App() {
+  const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
+
+  const handleVerifyCheckpoint = () => {
+    const updatedCheckpoints = selectedDriver.checkpoints.map((cp, index) => {
+      if (!cp.reached && index === selectedDriver.checkpoints.findIndex(c => !c.reached)) {
+        return { ...cp, reached: true, time: new Date().toLocaleTimeString() };
+      }
+      return cp;
+    });
+
+    setSelectedDriver({ ...selectedDriver, checkpoints: updatedCheckpoints });
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
+      {/* HEADER */}
+      <header className="bg-blue-700 text-white p-4 rounded-lg shadow">
+        <h1 className="text-2xl font-bold tracking-wide text-center">
+          Petroleum Delivery Tracking Dashboard
+        </h1>
+        <p className="text-sm text-gray-300 text-center">
+          Monitor live driver locations and checkpoint progress
+        </p>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* MAIN CONTENT */}
+      <div className="flex flex-1 space-x-4">
+        {/* LEFT PANEL */}
+        <aside className="w-1/5 bg-white p-4 rounded-lg shadow flex flex-col border border-gray-200">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">Drivers</h2>
+          {drivers.map((driver) => (
+            <div
+              key={driver.id}
+              className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${
+                selectedDriver.id === driver.id
+                  ? "bg-blue-400 text-white shadow border-blue-600 "
+                  : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
+              }`}
+              onClick={() => setSelectedDriver(driver)}
+            >
+              {driver.name}
+            </div>
+          ))}
+        </aside>
+
+        {/* MAP SECTION */}
+        <main className="flex-1 flex flex-col items-center justify-center p-4 rounded-lg shadow bg-white border border-gray-200">
+          <div className="w-full h-[80%] rounded-lg overflow-hidden border border-gray-300">
+            <Map
+              height={window.innerHeight * 0.65}
+              defaultCenter={selectedDriver.location as [number, number]}
+              center={selectedDriver.location as [number, number]}
+              defaultZoom={18}
+            >
+              <Marker anchor={selectedDriver.location as [number, number]} />
+              <Overlay
+                anchor={selectedDriver.location as [number, number]}
+                offset={[60, 20]}
+              >
+              </Overlay>
+            </Map>
+          </div>
+          <p className="mt-3 text-gray-600 text-sm italic">
+            Viewing live location of{" "}
+            <span className="font-semibold text-gray-900">{selectedDriver.name}</span>
+          </p>
+        </main>
+        {/* RIGHT PANEL */}
+      <aside className="w-1/4 bg-white p-4 rounded-lg shadow border border-gray-200 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-6 text-gray-800">
+          Progress Checkpoints
+        </h2>
+
+        <div className="relative">
+          {selectedDriver.checkpoints.map((cp, index) => (
+            <div key={index} className="flex items-start relative">
+              {/* Connector line */}
+              {index !== selectedDriver.checkpoints.length - 1 && (
+                <div
+                  className={`absolute left-3 top-6 w-0.5 h-full ${
+                    cp.reached ? "bg-green-500" : "bg-gray-300"
+                  }`}
+                ></div>
+              )}
+
+              {/* Circle */}
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center z-10 
+                ${cp.reached ? "bg-green-500 text-white" : "bg-gray-400 text-white"}`}
+              >
+              </div>
+
+              {/* Label + Time */}
+              <div className="ml-4 pb-8">
+                <p className="font-medium text-gray-900">{cp.name}</p>
+                {cp.time && (
+                  <p className="text-sm text-gray-500">{cp.time}</p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <button
+            onClick={handleVerifyCheckpoint}
+            className="w-full mt-6 bg-blue-700 text-white py-2 rounded-lg shadow hover:bg-blue-800 transition"
+          >
+            Verify Next Checkpoint
+          </button>
+        </aside>
+      </div>
     </div>
   );
 }
