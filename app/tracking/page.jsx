@@ -1,6 +1,9 @@
 'use client'
 import React, { useState } from "react";
 import { Map, Marker, Overlay } from "pigeon-maps";
+import { ChartNoAxesCombined } from 'lucide-react';
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 // --- Static Driver Data with Safety Notifications ---
 const drivers = [
@@ -42,11 +45,11 @@ const drivers = [
 ];
 
 // --- Driver List Component ---
-function DriverList({ drivers, selectedDriver, onSelect }: any) {
+function DriverList({ drivers, selectedDriver, onSelect }) {
   return (
     <aside className="w-1/5 bg-white p-4 rounded-lg shadow border border-gray-200">
       <h2 className="text-lg font-semibold mb-4 text-gray-800">Drivers</h2>
-      {drivers.map((driver: any) => (
+      {drivers.map((driver) => (
         <div
           key={driver.id}
           className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${
@@ -64,23 +67,23 @@ function DriverList({ drivers, selectedDriver, onSelect }: any) {
 }
 
 // --- Map Panel Component ---
-function MapPanel({ driver }: any) {
+function MapPanel({ driver }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 rounded-lg shadow bg-white border border-gray-200">
       <div className="w-full h-[80%] rounded-lg overflow-hidden border border-gray-300">
         <Map
           height={window.innerHeight * 0.65}
-          defaultCenter={driver.location as [number, number]}
-          center={driver.location as [number, number]}
+          defaultCenter={driver.location}
+          center={driver.location}
           defaultZoom={15}
         >
-          <Marker anchor={driver.location as [number, number]}>
+          <Marker anchor={driver.location}>
             <div className="w-8 h-8 bg-blue-700 text-white rounded-full flex items-center justify-center font-bold shadow">
               {driver.name.split(" ")[1][0]}
             </div>
           </Marker>
           <Overlay
-            anchor={driver.location as [number, number]}
+            anchor={driver.location}
             offset={[60, 20]}
           ></Overlay>
         </Map>
@@ -94,7 +97,7 @@ function MapPanel({ driver }: any) {
 }
 
 // --- Checkpoint Panel Component ---
-function CheckpointPanel({ checkpoints, onVerify }: any) {
+function CheckpointPanel({ checkpoints, onVerify }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[70%] flex flex-col">
       {/* Fixed Header */}
@@ -104,7 +107,7 @@ function CheckpointPanel({ checkpoints, onVerify }: any) {
 
       {/* Scrollable Checkpoint List */}
       <div className="relative flex-1 overflow-y-auto pr-2">
-        {checkpoints.map((cp: any, index: number) => (
+        {checkpoints.map((cp,index) => (
           <div key={index} className="flex items-start relative">
             {/* Connector line */}
             {index !== checkpoints.length - 1 && (
@@ -142,7 +145,7 @@ function CheckpointPanel({ checkpoints, onVerify }: any) {
 }
 
 // --- Safety Panel Component ---
-function SafetyPanel({ safetyMessage }: any) {
+function SafetyPanel({ safetyMessage }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[30%] mt-4">
       <h2 className="text-lg font-semibold mb-4 text-gray-800">
@@ -162,6 +165,7 @@ function SafetyPanel({ safetyMessage }: any) {
 // --- Main App Component ---
 export default function App() {
   const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
+  const router=useRouter();
 
   const handleVerifyCheckpoint = () => {
     const updatedCheckpoints = selectedDriver.checkpoints.map((cp, index) => {
@@ -174,16 +178,31 @@ export default function App() {
   };
 
   return (
+     <motion.div
+      initial={{ opacity: 0, x: 100 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -100 }}
+      transition={{ duration: 0.6, ease: "easeInOut" }}
+      className="min-h-screen"
+    >
     <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
       {/* HEADER */}
-      <header className="bg-blue-700 text-white p-4 rounded-lg shadow">
-        <h1 className="text-2xl font-bold tracking-wide text-center">
-          Petroleum Delivery Tracking Dashboard
-        </h1>
-        <p className="text-sm text-gray-300 text-center">
-          Monitor live driver locations and checkpoint progress
-        </p>
-      </header>
+     <header className="relative bg-blue-700 text-white p-4 rounded-lg shadow flex items-center justify-center">
+            {/* Left-aligned button */}
+            <button className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-600 transition">
+                <ChartNoAxesCombined size={28} color="white"  onClick={()=>router.push("/")}/>
+            </button>
+
+            {/* Title and subtitle */}
+            <div className="text-center">
+                <h1 className="text-2xl font-bold tracking-wide">
+                Petroleum Delivery Tracking Dashboard
+                </h1>
+                <p className="text-sm text-gray-300">
+                Monitor live driver locations and checkpoint progress
+                </p>
+            </div>
+            </header>
 
       {/* MAIN CONTENT */}
       <div className="flex flex-1 space-x-4">
@@ -205,5 +224,6 @@ export default function App() {
         </div>
       </div>
     </div>
+    </motion.div>
   );
 }
