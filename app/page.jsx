@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, LineChart, Line
 } from 'recharts';
 import { MdPieChart, MdBarChart, MdShowChart } from 'react-icons/md';
 import { Map } from 'lucide-react';
@@ -56,7 +57,6 @@ const datasets = {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
-// --- Header (matches tracking page look) ---
 function DashboardHeader() {
   const router = useRouter();
   return (
@@ -82,11 +82,17 @@ function DashboardHeader() {
 export default function DashboardPage() {
   const [selectedTable, setSelectedTable] = useState('Drivers');
 
-  // fixed default sizes for both charts
+  // chart boxes states
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
+  const [lineSize, setLineSize] = useState({ width: 500, height: 350 });
+
   const [piePos, setPiePos] = useState({ x: 0, y: 0 });
-  const [barPos, setBarPos] = useState({ x: 520, y: 0 }); // 500px width + ~20px gap
+  const [barPos, setBarPos] = useState({ x: 520, y: 0 });
+  const [linePos, setLinePos] = useState({ x: 260, y: 380 }); // somewhere below
+
+  // show/hide line chart
+  const [showLine, setShowLine] = useState(false);
 
   const pieData = datasets[selectedTable].pie;
   const barData = datasets[selectedTable].bar;
@@ -107,7 +113,7 @@ export default function DashboardPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`, // put your key in .env
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
@@ -115,14 +121,14 @@ export default function DashboardPage() {
             {
               role: 'system',
               content: `You are an analytics assistant. Use only the following local dataset for ${selectedTable} to answer:
-              ${localData}`,
+${localData}`,
             },
             { role: 'user', content: query },
           ],
         }),
       });
       const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'The dataset provided includes information on the fuel types used by drivers (Petrol, Diesel, LPG) and the shipments made in each month (Jan, Feb, Mar, Apr). For the fuel types used by drivers: - Petrol: 12 - Diesel: 19 - LPG: 7 For the shipments made in each month: - Jan: 30 shipments - Feb: 45 shipments - Mar: 20 shipments - Apr: 50 shipments';
+      const answer = data.choices?.[0]?.message?.content || 'No response';
       setMessages((m) => [...m, { role: 'assistant', content: answer }]);
     } catch (err) {
       setMessages((m) => [...m, { role: 'assistant', content: '❌ Error fetching response' }]);
@@ -142,7 +148,6 @@ export default function DashboardPage() {
     >
       <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
         <DashboardHeader />
-
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* LEFT: Sidebar */}
           <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
@@ -157,13 +162,17 @@ export default function DashboardPage() {
                   <MdBarChart className="text-green-600 text-2xl" />
                   <span className="text-gray-700 font-medium">Bar Chart</span>
                 </div>
-                <div className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-lg cursor-pointer">
+                <div
+                  className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-lg cursor-pointer"
+                  onClick={() => setShowLine((v) => !v)}
+                >
                   <MdShowChart className="text-purple-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">Line Chart</span>
+                  <span className="text-gray-700 font-medium">
+                    {showLine ? 'Line Chart' : 'Line Chart'}
+                  </span>
                 </div>
               </div>
             </div>
-
             <div className="p-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Tables</h2>
               <ul className="space-y-2">
@@ -187,6 +196,7 @@ export default function DashboardPage() {
           {/* CENTER: Charts stage */}
           <main className="flex-1 overflow-hidden">
             <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden overflow-y-hidden">
+              {/* PIE */}
               <Rnd
                 bounds="parent"
                 size={{ width: pieSize.width, height: pieSize.height }}
@@ -223,6 +233,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </Rnd>
 
+              {/* BAR */}
               <Rnd
                 bounds="parent"
                 size={{ width: barSize.width, height: barSize.height }}
@@ -250,6 +261,37 @@ export default function DashboardPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </Rnd>
+
+              {/* LINE - always mounted, but toggle visible */}
+              {showLine && (
+                <Rnd
+                  bounds="parent"
+                  size={{ width: lineSize.width, height: lineSize.height }}
+                  position={{ x: linePos.x, y: linePos.y }}
+                  onDragStop={(_, d) => setLinePos({ x: d.x, y: d.y })}
+                  onResizeStop={(_, __, ref, ___, pos) => {
+                    setLineSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                    setLinePos(pos);
+                  }}
+                  minWidth={300}
+                  minHeight={250}
+                  className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
+                >
+                  <h2 className="text-lg font-semibold text-gray-700 mb-4">
+                    {selectedTable} Trend
+                  </h2>
+                  <ResponsiveContainer width="100%" height={lineSize.height - 60}>
+                    <LineChart data={barData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="shipments" stroke="#8b5cf6" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Rnd>
+              )}
             </div>
           </main>
 
@@ -259,7 +301,6 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-800">Ask the data</h2>
               <p className="text-xs text-gray-500">Natural-language queries</p>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="text-xs text-gray-500 text-center">
@@ -285,7 +326,6 @@ export default function DashboardPage() {
                 <div className="text-xs text-gray-500">Thinking…</div>
               )}
             </div>
-
             <div className="p-3 border-t border-gray-200">
               <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
                 <input
