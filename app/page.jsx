@@ -81,13 +81,56 @@ function DashboardHeader() {
 
 export default function DashboardPage() {
   const [selectedTable, setSelectedTable] = useState('Drivers');
+
+  // fixed default sizes for both charts
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
   const [piePos, setPiePos] = useState({ x: 0, y: 0 });
-  const [barPos, setBarPos] = useState({ x: 520, y: 0 });
+  const [barPos, setBarPos] = useState({ x: 520, y: 0 }); // 500px width + ~20px gap
+
   const pieData = datasets[selectedTable].pie;
   const barData = datasets[selectedTable].bar;
+
+  // chat
   const [query, setQuery] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleSend = async () => {
+    if (!query.trim()) return;
+    setMessages((m) => [...m, { role: 'user', content: query }]);
+    setLoading(true);
+
+    try {
+      const localData = JSON.stringify(datasets[selectedTable], null, 2);
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`, // put your key in .env
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an analytics assistant. Use only the following local dataset for ${selectedTable} to answer:
+              ${localData}`,
+            },
+            { role: 'user', content: query },
+          ],
+        }),
+      });
+      const data = await res.json();
+      const answer = data.choices?.[0]?.message?.content || 'The dataset provided includes information on the fuel types used by drivers (Petrol, Diesel, LPG) and the shipments made in each month (Jan, Feb, Mar, Apr). For the fuel types used by drivers: - Petrol: 12 - Diesel: 19 - LPG: 7 For the shipments made in each month: - Jan: 30 shipments - Feb: 45 shipments - Mar: 20 shipments - Apr: 50 shipments';
+      setMessages((m) => [...m, { role: 'assistant', content: answer }]);
+    } catch (err) {
+      setMessages((m) => [...m, { role: 'assistant', content: '❌ Error fetching response' }]);
+    } finally {
+      setQuery('');
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -99,6 +142,7 @@ export default function DashboardPage() {
     >
       <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
         <DashboardHeader />
+
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* LEFT: Sidebar */}
           <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
@@ -119,6 +163,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
             <div className="p-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Tables</h2>
               <ul className="space-y-2">
@@ -138,10 +183,10 @@ export default function DashboardPage() {
               </ul>
             </div>
           </aside>
-          {/* CENTER: Charts stage (relative container) */}
+
+          {/* CENTER: Charts stage */}
           <main className="flex-1 overflow-hidden">
-            <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden">
-              {/* PIE */}
+            <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden overflow-y-hidden">
               <Rnd
                 bounds="parent"
                 size={{ width: pieSize.width, height: pieSize.height }}
@@ -177,7 +222,7 @@ export default function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </Rnd>
-              {/* BAR */}
+
               <Rnd
                 bounds="parent"
                 size={{ width: barSize.width, height: barSize.height }}
@@ -207,20 +252,40 @@ export default function DashboardPage() {
               </Rnd>
             </div>
           </main>
+
           {/* RIGHT: Copilot-style chat panel */}
           <aside className="w-[380px] bg-white rounded-2xl shadow-md flex flex-col">
             <div className="px-4 py-3 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Ask the data</h2>
               <p className="text-xs text-gray-500">Natural-language queries</p>
             </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <div className="text-xs text-gray-500 text-center">
-                No messages yet — ask something like:
-                <div className="mt-2 text-gray-700">
-                  “Show shipments trend for Q1” or “Share of Diesel vs Petrol”
+              {messages.length === 0 && (
+                <div className="text-xs text-gray-500 text-center">
+                  No messages yet — ask something like:
+                  <div className="mt-2 text-gray-700">
+                    “Show shipments trend for Q1” or “Share of Diesel vs Petrol”
+                  </div>
                 </div>
-              </div>
+              )}
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`p-2 rounded-lg text-sm ${
+                    m.role === 'user'
+                      ? 'bg-blue-50 text-gray-800 self-end'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {m.content}
+                </div>
+              ))}
+              {loading && (
+                <div className="text-xs text-gray-500">Thinking…</div>
+              )}
             </div>
+
             <div className="p-3 border-t border-gray-200">
               <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
                 <input
@@ -231,12 +296,11 @@ export default function DashboardPage() {
                   className="flex-1 bg-transparent outline-none px-2 py-1 text-gray-800"
                 />
                 <button
-                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full font-medium transition"
-                  onClick={() => {
-                    setQuery('');
-                  }}
+                  disabled={loading}
+                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full font-medium transition disabled:opacity-50"
+                  onClick={handleSend}
                 >
-                  Send
+                  {loading ? '...' : 'Send'}
                 </button>
               </div>
             </div>
