@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  ResponsiveContainer
+  ResponsiveContainer,
+  LineChart,
+  Line
 } from 'recharts';
-import { MdPieChart, MdBarChart } from 'react-icons/md';
+import { MdPieChart, MdBarChart ,MdShowChart  } from 'react-icons/md';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import DashboardHeader from '../components/DashboardHeader';
+
 
 // unified static datasets with matching categories/months
 const datasets = {
@@ -82,20 +85,21 @@ const datasets = {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function DashboardPage() {
-  // === DEFAULT SIZE & POSITION FOR EACH CHART ===
-  // These state values set the initial width/height and x,y position where the chart boxes appear.
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
   const [stackSize, setStackSize] = useState({ width: 500, height: 350 });
   const [piePos, setPiePos] = useState({ x: 0, y: 100 });
   const [barPos, setBarPos] = useState({ x: 520, y: 100 });
   const [stackPos, setStackPos] = useState({ x: 0, y: 180 });
-  // === END DEFAULT POSITION/SIZE ===
+  const [lineSize, setLineSize] = useState({ width: 500, height: 350 });
+  const [linePos, setLinePos] = useState({ x: 0, y: 100 });
+
 
   const [visible, setVisible] = useState({
     pie: false,
     bar: false,
     stack: false,
+    line: false, 
   });
 
   const [xTable, setXTable] = useState(null);
@@ -195,6 +199,13 @@ export default function DashboardPage() {
                   <MdBarChart className="text-purple-600 text-2xl" />
                   <span className="text-gray-700 font-medium">Stacked Bar</span>
                 </div>
+                <div
+              onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
+              className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${visible.line ? 'bg-red-100' : 'hover:bg-blue-50'}`}
+            >
+              <MdShowChart className="text-red-600 text-2xl" />
+              <span className="text-gray-700 font-medium">Line Chart</span>
+            </div>
               </div>
             </div>
             <div className="p-4">
@@ -248,6 +259,28 @@ export default function DashboardPage() {
                   ) : <p className="text-gray-400">Drag two tables above.</p>}
                 </Rnd>
               )}
+
+              {visible.line && (
+  <Rnd bounds="parent" size={lineSize} position={linePos}
+       onDragStop={(_, d) => setLinePos({ x: d.x, y: d.y })}
+       onResizeStop={(_, __, ref, ___, pos) => { setLineSize({ width: ref.offsetWidth, height: ref.offsetHeight }); setLinePos(pos); }}
+       minWidth={300} minHeight={250}
+       className="bg-white rounded-2xl shadow p-4 flex flex-col absolute">
+    <h2 className="text-lg font-semibold text-gray-700 mb-4">Combined Line</h2>
+    {combinedBarLine.length > 0 ? (
+      <ResponsiveContainer width="100%" height={lineSize.height - 60}>
+        <LineChart data={combinedBarLine}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" /><YAxis /><Tooltip /><Legend />
+          <Line type="monotone" dataKey="xShipments" stroke="#3b82f6" strokeWidth={2} />
+          <Line type="monotone" dataKey="yShipments" stroke="#10b981" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    ) : <p className="text-gray-400">Drag two tables above.</p>}
+  </Rnd>
+)}
+
+
 
               {visible.bar && (
                 <Rnd bounds="parent" size={barSize} position={barPos}
