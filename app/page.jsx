@@ -4,13 +4,13 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer,
-  LineChart,
-  Line
+  LineChart,Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import { MdPieChart, MdBarChart ,MdShowChart  } from 'react-icons/md';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import DashboardHeader from '../components/DashboardHeader';
+import { GiRadarSweep } from "react-icons/gi";
 
 const datasets = {
   Drivers: {
@@ -91,14 +91,17 @@ export default function DashboardPage() {
   const [stackPos, setStackPos] = useState({ x: 0, y: 180 });
   const [lineSize, setLineSize] = useState({ width: 500, height: 350 });
   const [linePos, setLinePos] = useState({ x: 0, y: 100 });
-  const [rightPanelSize, setRightPanelSize] = useState({ width: 380, height: '100%' });
-  const [rightPanelPos, setRightPanelPos] = useState({ x: 0, y: 0 });
+  const [radarSize, setRadarSize] = useState({ width: 500, height: 350 });
+  const [radarPos, setRadarPos] = useState({ x: 0, y: 100 });
+
+
 
   const [visible, setVisible] = useState({
     pie: false,
     bar: false,
     stack: false,
     line: false, 
+    radar:false
   });
 
   const [xTable, setXTable] = useState(null);
@@ -179,71 +182,91 @@ export default function DashboardPage() {
         <DashboardHeader />
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* LEFT */}
-          <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
-            <div className="flex-1 p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Charts</h2>
-              <div className="space-y-3">
-                <div
-                  onClick={() => setVisible((v) => ({ ...v, pie: !v.pie }))}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${visible.pie ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
+       <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
+  {/* CHARTS SECTION */}
+  <div className="border-b border-gray-200">
+    <h2 className="text-lg font-semibold text-gray-800 px-4 pt-4">Charts</h2>
+    <div className="mt-2 px-4 space-y-3 h-64 overflow-y-auto scrollbar-hide">
+      <div
+        onClick={() => setVisible((v) => ({ ...v, pie: !v.pie }))}
+        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+          visible.pie ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-blue-50'
+        }`}
+      >
+        <MdPieChart className="text-blue-600 text-2xl" />
+        <span className="text-gray-700 font-medium">Pie Chart</span>
+      </div>
+      <div
+        onClick={() => setVisible((v) => ({ ...v, bar: !v.bar }))}
+        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+          visible.bar ? 'bg-green-100 border-l-4 border-green-600' : 'hover:bg-blue-50'
+        }`}
+      >
+        <MdBarChart className="text-green-600 text-2xl" />
+        <span className="text-gray-700 font-medium">Bar Chart</span>
+      </div>
+      <div
+        onClick={() => setVisible((v) => ({ ...v, stack: !v.stack }))}
+        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+          visible.stack ? 'bg-purple-100 border-l-4 border-purple-600' : 'hover:bg-blue-50'
+        }`}
+      >
+        <MdBarChart className="text-purple-600 text-2xl" />
+        <span className="text-gray-700 font-medium">Stacked Bar</span>
+      </div>
+      <div
+        onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
+        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+          visible.line ? 'bg-red-100 border-l-4 border-red-600' : 'hover:bg-blue-50'
+        }`}
+      >
+        <MdShowChart className="text-red-600 text-2xl" />
+        <span className="text-gray-700 font-medium">Line Chart</span>
+      </div>
+      <div
+        onClick={() => setVisible((v) => ({ ...v, radar: !v.radar }))}
+        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+          visible.radar ? 'bg-pink-100 border-l-4 border-pink-600' : 'hover:bg-blue-50'
+        }`}
+      >
+        <GiRadarSweep className="text-pink-600 text-2xl" />
+        <span className="text-gray-700 font-medium">Radar Chart</span>
+      </div>
+      {/* add more chart toggles here */}
+    </div>
+  </div>
+
+        {/* TABLES SECTION */}
+          <div className="flex-1 px-4 py-4 overflow-y-auto scrollbar-hide">
+            <ul className="space-y-2">
+              {Object.keys(datasets).map((table) => (
+                <li
+                  key={table}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, table)}
+                  className="p-2 rounded-md cursor-pointer font-medium bg-gray-200/20 hover:bg-blue-50 transition-colors duration-200 text-gray-700 shadow-sm"
                 >
-                  <MdPieChart className="text-blue-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">Pie Chart</span>
-                </div>
-                <div
-                  onClick={() => setVisible((v) => ({ ...v, bar: !v.bar }))}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${visible.bar ? 'bg-green-100' : 'hover:bg-blue-50'}`}
-                >
-                  <MdBarChart className="text-green-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">Bar Chart</span>
-                </div>
-                <div
-                  onClick={() => setVisible((v) => ({ ...v, stack: !v.stack }))}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${visible.stack ? 'bg-purple-100' : 'hover:bg-blue-50'}`}
-                >
-                  <MdBarChart className="text-purple-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">Stacked Bar</span>
-                </div>
-                <div
-                  onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${visible.line ? 'bg-red-100' : 'hover:bg-blue-50'}`}
-                >
-                  <MdShowChart className="text-red-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">Line Chart</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-4">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Tables</h2>
-              <ul className="space-y-2">
-                {Object.keys(datasets).map((table) => (
-                  <li
-                    key={table}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, table)}
-                    className="p-2 rounded-lg cursor-pointer font-medium hover:bg-blue-50 text-gray-700"
-                  >
-                    {table}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+                  {table}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
 
           {/* CENTER */}
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1">
             <div className="flex space-x-4 mb-4">
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => setXTable(e.dataTransfer.getData("table"))}
-                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-20 flex items-center justify-center text-gray-500"
+                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-10 flex items-center justify-center text-gray-500"
               >
                 {xTable ? `X Axis Table: ${xTable}` : "Drag a table here for X Axis"}
               </div>
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => setYTable(e.dataTransfer.getData("table"))}
-                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-20 flex items-center justify-center text-gray-500"
+                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-10 flex items-center justify-center text-gray-500"
               >
                 {yTable ? `Y Axis Table: ${yTable}` : "Drag a table here for Y Axis"}
               </div>
@@ -339,6 +362,32 @@ export default function DashboardPage() {
                 </Rnd>
               )}
 
+              {visible.radar && (
+              <Rnd bounds="parent" size={radarSize} position={radarPos}
+                  onDragStop={(_, d) => setRadarPos({ x: d.x, y: d.y })}
+                  onResizeStop={(_, __, ref, ___, pos) => {
+                    setRadarSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                    setRadarPos(pos);
+                  }}
+                  minWidth={300} minHeight={250}
+                  className="bg-white rounded-2xl shadow p-4 flex flex-col absolute">
+                <h2 className="text-lg font-semibold text-gray-700 mb-4">Combined Radar</h2>
+                {combinedPie.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={radarSize.height - 60}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={combinedPie}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="name" />
+                      <PolarRadiusAxis />
+                      <Radar name={`${xTable} Values`} dataKey="xValue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                      <Radar name={`${yTable} Values`} dataKey="yValue" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                      <Legend />
+                      <Tooltip />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-gray-400">Drag two tables above.</p>}
+              </Rnd>
+            )}
+
               {visible.bar && (
                 <Rnd
                   bounds="parent"
@@ -362,8 +411,8 @@ export default function DashboardPage() {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="xShipments" fill="#3b82f6" name={`${xTable} Shipments`} />
-                        <Bar dataKey="yShipments" fill="#10b981" name={`${yTable} Shipments`} />
+                        <Bar dataKey="xShipments" fill="#3b82f6" name={`${xTable}`} />
+                        <Bar dataKey="yShipments" fill="#10b981" name={`${yTable}`} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -395,8 +444,8 @@ export default function DashboardPage() {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="xShipments" stackId="a" fill="#3b82f6" name={`${xTable} Shipments`} />
-                        <Bar dataKey="yShipments" stackId="a" fill="#10b981" name={`${yTable} Shipments`} />
+                        <Bar dataKey="xShipments" stackId="a" fill="#3b82f6" name={`${xTable}`} />
+                        <Bar dataKey="yShipments" stackId="a" fill="#10b981" name={`${yTable}`} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
