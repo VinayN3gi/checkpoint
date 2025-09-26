@@ -5,44 +5,48 @@ import { ChartNoAxesCombined } from 'lucide-react';
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
+import { db } from "../lib/firebase"
+import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, getDocs, getDoc, GeoPoint, Timestamp } from "firebase/firestore";
+
 // --- Static Driver Data with Safety Notifications ---
 const drivers = [
   {
     id: 1,
     name: "Driver A - Petrol Tanker",
     location: [28.6139, 77.209], // Delhi
-    checkpoints: [
-      { name: "Depot", reached: true, time: "09:00 AM" },
-      { name: "Highway Checkpoint", reached: true, time: "11:15 AM" },
-      { name: "City Storage Yard", reached: false, time: null },
-      { name: "Petroleum Plant", reached: false, time: null },
-    ],
     safetyNotification: null,
   },
   {
     id: 2,
     name: "Driver B - Diesel Truck",
     location: [19.076, 72.8777], // Mumbai
-    checkpoints: [
-      { name: "Depot", reached: true, time: "08:30 AM" },
-      { name: "Toll Plaza", reached: true, time: "10:10 AM" },
-      { name: "Fuel Distribution Center", reached: false, time: null },
-      { name: "Industrial Refinery", reached: false, time: null },
-    ],
     safetyNotification: "⚠️ Engine overheating detected near Toll Plaza",
   },
   {
     id: 3,
     name: "Driver C - LPG Ship",
     location: [13.0827, 80.2707], // Chennai
-    checkpoints: [
-      { name: "Port Dock", reached: true, time: "07:45 AM" },
-      { name: "Offshore Checkpoint", reached: false, time: null },
-      { name: "Main Harbor Storage", reached: false, time: null },
-    ],
     safetyNotification: "⚠️ Minor oil leakage observed at port dock",
   },
 ];
+
+function formatFirestoreTimestamp(ts) {
+  if (!ts) return ""; // handle null
+
+  const date = ts.toDate(); // convert Firestore Timestamp to JS Date
+
+  // Options for day/month/year and 12-hour time
+  const options = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  };
+
+  return date.toLocaleString("en-GB", options); // en-GB gives dd/mm/yyyy
+}
 
 // --- Driver List Component ---
 function DriverList({ drivers, selectedDriver, onSelect }) {
@@ -97,6 +101,10 @@ function MapPanel({ driver }) {
 
 // --- Checkpoint Panel Component ---
 function CheckpointPanel({ checkpoints, onVerify }) {
+  const cpArray = Object.entries(checkpoints)
+    .map(([id, cp]) => ({ id, ...cp }))
+    .sort((a, b) => a.index - b.index);
+
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[70%] flex flex-col">
       {/* Fixed Header */}
@@ -106,26 +114,25 @@ function CheckpointPanel({ checkpoints, onVerify }) {
 
       {/* Scrollable Checkpoint List */}
       <div className="relative flex-1 overflow-y-auto pr-2">
-        {checkpoints.map((cp, index) => (
+        {cpArray.map((cp, index) => (
           <div key={index} className="flex items-start relative">
             {/* Connector line */}
-            {index !== checkpoints.length - 1 && (
+            {index !== cpArray.length - 1 && (
               <div
-                className={`absolute left-3 top-6 w-0.5 h-full ${cp.reached ? "bg-green-500" : "bg-gray-300"
-                  }`}
+                className={`absolute left-3 top-6 w-0.5 h-full ${cp.reachedAt !== null ? "bg-green-500" : "bg-gray-300"}`}
               ></div>
             )}
 
             {/* Circle */}
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center z-10 
-              ${cp.reached ? "bg-green-500 text-white" : "bg-gray-400 text-white"}`}
+              ${cp.reachedAt !== null ? "bg-green-500 text-white" : "bg-gray-400 text-white"}`}
             ></div>
 
             {/* Label + Time */}
             <div className="ml-4 pb-8">
               <p className="font-medium text-gray-900">{cp.name}</p>
-              {cp.time && <p className="text-sm text-gray-500">{cp.time}</p>}
+              {cp.reachedAt !== null && <p className="text-sm text-gray-500">{formatFirestoreTimestamp(cp.reachedAt)}</p>}
             </div>
           </div>
         ))}
@@ -163,32 +170,118 @@ function SafetyPanel({ safetyMessage }) {
 // --- Main App Component ---
 export default function App() {
   const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
-  const [logs, setLogs] = useState([]);
+  const [notif, setNotif] = useState(null);
+  const [concerns, setConcerns] = useState(null);
+  const [cps, setCps] = useState(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "deliveries"),
+      where("active", "==", true)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setCps(data[0].checkpoints);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const router = useRouter();
 
   async function fetchMessages() {
     const res = await fetch("/api/message");
     const data = await res.json();
+
     if (data.length > 0) {
-      setLogs((prev) => [...data, ...prev]);
-      alert(data[data.length - 1]); // popup alert for latest message
+      setNotif(data[data.length - 1]); // popup alert for latest message
+    }
+  }
+  async function fetchConcerns() {
+    const res = await fetch("/api/concern");
+    const data = await res.json();
+
+    if (data.length > 0) {
+      setConcerns(data[data.length - 1]); // popup alert for latest message
     }
   }
 
   useEffect(() => {
-    const interval = setInterval(fetchMessages, 3000); // poll every 3 sec
+    const interval = setInterval(()=>{
+      fetchMessages();
+      fetchConcerns();
+    }, 3000); // poll every 3 sec
     return () => clearInterval(interval);
   }, []);
 
-  const handleVerifyCheckpoint = () => {
-    const updatedCheckpoints = selectedDriver.checkpoints.map((cp, index) => {
-      if (!cp.reached && index === selectedDriver.checkpoints.findIndex(c => !c.reached)) {
-        return { ...cp, reached: true, time: new Date().toLocaleTimeString() };
+  async function updateDriverLocation(driverId, lat, lng) {
+    const driverRef = doc(db, "drivers", driverId);
+    await updateDoc(driverRef, { location: [lat, lng] });
+  }
+
+  async function markCheckpoint(driverId) {
+    // Find the active delivery for this driver
+    const deliveriesRef = collection(db, "deliveries");
+    const q = query(
+      deliveriesRef,
+      where("driverID", "==", driverId),
+      where("active", "==", true)
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      throw new Error("No active delivery found for this driver");
+    }
+
+    // Assuming one active delivery per driver
+    const deliveryDoc = snapshot.docs[0];
+    const deliveryRef = doc(db, "deliveries", deliveryDoc.id);
+
+    const cpArray = Object.entries(deliveryDoc.data().checkpoints)
+      .map(([id, cp]) => ({ id, ...cp }))
+      .sort((a, b) => a.index - b.index);
+
+    let toChangeId;
+
+    for (let i of cpArray) {
+      if (i.reachedAt === null) {
+        toChangeId = i.id;
+        break;
       }
-      return cp;
+    }
+
+    // Update the checkpoint's reachedAt timestamp
+    await updateDoc(deliveryRef, {
+      [`checkpoints.${toChangeId}.reachedAt`]: serverTimestamp()
     });
-    setSelectedDriver({ ...selectedDriver, checkpoints: updatedCheckpoints });
+  }
+
+  async function addCheckpoint(deliveryId, checkpointId, checkpoint) {
+    const deliveryRef = doc(db, "deliveries", deliveryId);
+    const geoLocation = new GeoPoint(checkpoint.location.lat, checkpoint.location.lng);
+
+    await updateDoc(deliveryRef, {
+      [`checkpoints.${checkpointId}`]: {
+        ...checkpoint,
+        location: geoLocation,
+        reachedAt: null
+      }
+    });
+  }
+
+  const handleVerifyCheckpoint = () => {
+    setNotif(null);
+
+    //updateDriverLocation("YdS7cEgFv6We3ziFoVQu", 32, 78);
+    //markCheckpoint("YdS7cEgFv6We3ziFoVQu")
+
+    addCheckpoint("JfW032qMr8nZp0HM2fKl", "cp4", {
+      name: "Petroleum Plant",
+      location: { lat: 40, lng: 90 },
+    });
+
   };
 
   return (
@@ -218,6 +311,20 @@ export default function App() {
           </div>
         </header>
 
+        {
+          notif !== null
+            ? <motion.div
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ duration: 0.6, ease: "easeInOut" }}
+              className="absolute right-5 top-5 text-black shadow-blue-900 shadow-xl py-2 px-6 border-cyan-500 border-4 rounded-lg bg-white min-w-[10em]"
+            >
+              <span>{notif}</span>
+            </motion.div>
+            : null
+        }
+
         {/* MAIN CONTENT */}
         <div className="flex flex-1 space-x-4">
           <DriverList
@@ -228,14 +335,18 @@ export default function App() {
 
           <MapPanel driver={selectedDriver} />
 
-          {/* Right side stacked panels with fixed height split */}
-          <div className="w-1/4 flex flex-col h-full">
-            <CheckpointPanel
-              checkpoints={selectedDriver.checkpoints}
-              onVerify={handleVerifyCheckpoint}
-            />
-            <SafetyPanel safetyMessage={selectedDriver.safetyNotification} />
-          </div>
+          {
+            cps !== null
+              ? <div className="w-1/4 flex flex-col h-full">
+                <CheckpointPanel
+                  checkpoints={cps}
+                  onVerify={handleVerifyCheckpoint}
+                />
+                <SafetyPanel safetyMessage={concerns} />
+              </div>
+              : null
+          }
+
         </div>
       </div>
     </motion.div>
