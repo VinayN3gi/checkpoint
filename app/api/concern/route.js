@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 
-let messages = [];
+let concerns = [];
 
 export async function POST(req) {
   const { message } = await req.json();
-  messages.push(message);
+  concerns.push(message);
   return NextResponse.json({ success: true });
 }
 
 export async function GET() {
-  const data = [...messages];
-  messages = []; // clear after reading so they're not repeated
+  const data = [...concerns];
+  concerns = []; // clear after reading so they're not repeated
   return NextResponse.json(data);
 }
