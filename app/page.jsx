@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 
-// dummy datasets
+// --- Dummy datasets ---
 const datasets = {
   Drivers: {
     pie: [
@@ -56,6 +56,7 @@ const datasets = {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
+// --- Header (matches tracking page look) ---
 function DashboardHeader() {
   const router = useRouter();
   return (
@@ -80,13 +81,13 @@ function DashboardHeader() {
 
 export default function DashboardPage() {
   const [selectedTable, setSelectedTable] = useState('Drivers');
-
-  const pieData = datasets[selectedTable].pie;
-  const barData = datasets[selectedTable].bar;
-
-  // fixed initial sizes
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
+  const [piePos, setPiePos] = useState({ x: 0, y: 0 });
+  const [barPos, setBarPos] = useState({ x: 520, y: 0 });
+  const pieData = datasets[selectedTable].pie;
+  const barData = datasets[selectedTable].bar;
+  const [query, setQuery] = useState('');
 
   return (
     <motion.div
@@ -98,9 +99,8 @@ export default function DashboardPage() {
     >
       <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
         <DashboardHeader />
-
         <div className="flex flex-1 gap-4 overflow-hidden">
-          {/* Sidebar */}
+          {/* LEFT: Sidebar */}
           <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
             <div className="flex-1 p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Charts</h2>
@@ -119,11 +119,10 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-
             <div className="p-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Tables</h2>
               <ul className="space-y-2">
-                {['Drivers', 'Shipments', 'Locations'].map((table) => (
+                {(['Drivers', 'Shipments', 'Locations']).map((table) => (
                   <li
                     key={table}
                     onClick={() => setSelectedTable(table)}
@@ -139,19 +138,22 @@ export default function DashboardPage() {
               </ul>
             </div>
           </aside>
-
-          {/* Main content */}
-          <main className="flex-1 overflow-y-auto flex flex-col">
-            <div className="flex-1 flex flex-row flex-wrap gap-4 justify-center items-start">
-              {/* Pie Chart */}
+          {/* CENTER: Charts stage (relative container) */}
+          <main className="flex-1 overflow-hidden">
+            <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden">
+              {/* PIE */}
               <Rnd
+                bounds="parent"
                 size={{ width: pieSize.width, height: pieSize.height }}
-                onResizeStop={(e, dir, ref) => {
+                position={{ x: piePos.x, y: piePos.y }}
+                onDragStop={(_, d) => setPiePos({ x: d.x, y: d.y })}
+                onResizeStop={(_, __, ref, ___, pos) => {
                   setPieSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                  setPiePos(pos);
                 }}
-                className="bg-white rounded-2xl shadow p-4 flex flex-col"
                 minWidth={300}
                 minHeight={250}
+                className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
               >
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">
                   {selectedTable} by Type
@@ -167,10 +169,7 @@ export default function DashboardPage() {
                       label
                     >
                       {pieData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -178,16 +177,19 @@ export default function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </Rnd>
-
-              {/* Bar Chart */}
+              {/* BAR */}
               <Rnd
+                bounds="parent"
                 size={{ width: barSize.width, height: barSize.height }}
-                onResizeStop={(e, dir, ref) => {
+                position={{ x: barPos.x, y: barPos.y }}
+                onDragStop={(_, d) => setBarPos({ x: d.x, y: d.y })}
+                onResizeStop={(_, __, ref, ___, pos) => {
                   setBarSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                  setBarPos(pos);
                 }}
-                className="bg-white rounded-2xl shadow p-4 flex flex-col"
                 minWidth={300}
                 minHeight={250}
+                className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
               >
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">
                   {selectedTable} Monthly Data
@@ -204,21 +206,41 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </Rnd>
             </div>
-
-            {/* Input bar */}
-            <div className="mt-4">
-              <div className="flex items-center bg-white border border-gray-300 rounded-full shadow px-4 py-2">
+          </main>
+          {/* RIGHT: Copilot-style chat panel */}
+          <aside className="w-[380px] bg-white rounded-2xl shadow-md flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Ask the data</h2>
+              <p className="text-xs text-gray-500">Natural-language queries</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="text-xs text-gray-500 text-center">
+                No messages yet — ask something like:
+                <div className="mt-2 text-gray-700">
+                  “Show shipments trend for Q1” or “Share of Diesel vs Petrol”
+                </div>
+              </div>
+            </div>
+            <div className="p-3 border-t border-gray-200">
+              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
                 <input
                   type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ask something about the data..."
-                  className="flex-1 px-3 py-2 outline-none rounded-full text-gray-800"
+                  className="flex-1 bg-transparent outline-none px-2 py-1 text-gray-800"
                 />
-                <button className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full font-medium transition">
+                <button
+                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full font-medium transition"
+                  onClick={() => {
+                    setQuery('');
+                  }}
+                >
                   Send
                 </button>
               </div>
             </div>
-          </main>
+          </aside>
         </div>
       </div>
     </motion.div>
