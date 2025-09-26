@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Map, Marker, Overlay } from "pigeon-maps";
 import { ChartNoAxesCombined } from 'lucide-react';
 import { motion } from "framer-motion";
@@ -52,11 +52,10 @@ function DriverList({ drivers, selectedDriver, onSelect }) {
       {drivers.map((driver) => (
         <div
           key={driver.id}
-          className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${
-            selectedDriver.id === driver.id
-              ? "bg-blue-700 text-white shadow border-blue-800 "
-              : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
-          }`}
+          className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${selectedDriver.id === driver.id
+            ? "bg-blue-700 text-white shadow border-blue-800 "
+            : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
+            }`}
           onClick={() => onSelect(driver)}
         >
           {driver.name}
@@ -107,14 +106,13 @@ function CheckpointPanel({ checkpoints, onVerify }) {
 
       {/* Scrollable Checkpoint List */}
       <div className="relative flex-1 overflow-y-auto pr-2">
-        {checkpoints.map((cp,index) => (
+        {checkpoints.map((cp, index) => (
           <div key={index} className="flex items-start relative">
             {/* Connector line */}
             {index !== checkpoints.length - 1 && (
               <div
-                className={`absolute left-3 top-6 w-0.5 h-full ${
-                  cp.reached ? "bg-green-500" : "bg-gray-300"
-                }`}
+                className={`absolute left-3 top-6 w-0.5 h-full ${cp.reached ? "bg-green-500" : "bg-gray-300"
+                  }`}
               ></div>
             )}
 
@@ -165,7 +163,23 @@ function SafetyPanel({ safetyMessage }) {
 // --- Main App Component ---
 export default function App() {
   const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
-  const router=useRouter();
+  const [logs, setLogs] = useState([]);
+
+  const router = useRouter();
+
+  async function fetchMessages() {
+    const res = await fetch("/api/message");
+    const data = await res.json();
+    if (data.length > 0) {
+      setLogs((prev) => [...data, ...prev]);
+      alert(data[data.length - 1]); // popup alert for latest message
+    }
+  }
+
+  useEffect(() => {
+    const interval = setInterval(fetchMessages, 3000); // poll every 3 sec
+    return () => clearInterval(interval);
+  }, []);
 
   const handleVerifyCheckpoint = () => {
     const updatedCheckpoints = selectedDriver.checkpoints.map((cp, index) => {
@@ -178,52 +192,52 @@ export default function App() {
   };
 
   return (
-     <motion.div
+    <motion.div
       initial={{ opacity: 0, x: 100 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -100 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
       className="min-h-screen"
     >
-    <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
-      {/* HEADER */}
-     <header className="relative bg-blue-700 text-white p-4 rounded-lg shadow flex items-center justify-center">
-            {/* Left-aligned button */}
-            <button className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-600 transition">
-                <ChartNoAxesCombined size={28} color="white"  onClick={()=>router.push("/")}/>
-            </button>
+      <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
+        {/* HEADER */}
+        <header className="relative bg-blue-700 text-white p-4 rounded-lg shadow flex items-center justify-center">
+          {/* Left-aligned button */}
+          <button className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-600 transition">
+            <ChartNoAxesCombined size={28} color="white" onClick={() => router.push("/")} />
+          </button>
 
-            {/* Title and subtitle */}
-            <div className="text-center">
-                <h1 className="text-2xl font-bold tracking-wide">
-                Petroleum Delivery Tracking Dashboard
-                </h1>
-                <p className="text-sm text-gray-300">
-                Monitor live driver locations and checkpoint progress
-                </p>
-            </div>
-            </header>
+          {/* Title and subtitle */}
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-wide">
+              Petroleum Delivery Tracking Dashboard
+            </h1>
+            <p className="text-sm text-gray-300">
+              Monitor live driver locations and checkpoint progress
+            </p>
+          </div>
+        </header>
 
-      {/* MAIN CONTENT */}
-      <div className="flex flex-1 space-x-4">
-        <DriverList
-          drivers={drivers}
-          selectedDriver={selectedDriver}
-          onSelect={setSelectedDriver}
-        />
-
-        <MapPanel driver={selectedDriver} />
-
-        {/* Right side stacked panels with fixed height split */}
-        <div className="w-1/4 flex flex-col h-full">
-          <CheckpointPanel
-            checkpoints={selectedDriver.checkpoints}
-            onVerify={handleVerifyCheckpoint}
+        {/* MAIN CONTENT */}
+        <div className="flex flex-1 space-x-4">
+          <DriverList
+            drivers={drivers}
+            selectedDriver={selectedDriver}
+            onSelect={setSelectedDriver}
           />
-          <SafetyPanel safetyMessage={selectedDriver.safetyNotification} />
+
+          <MapPanel driver={selectedDriver} />
+
+          {/* Right side stacked panels with fixed height split */}
+          <div className="w-1/4 flex flex-col h-full">
+            <CheckpointPanel
+              checkpoints={selectedDriver.checkpoints}
+              onVerify={handleVerifyCheckpoint}
+            />
+            <SafetyPanel safetyMessage={selectedDriver.safetyNotification} />
+          </div>
         </div>
       </div>
-    </div>
     </motion.div>
   );
 }
