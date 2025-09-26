@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 
-// --- Dummy datasets ---
+// dummy datasets
 const datasets = {
   Drivers: {
     pie: [
@@ -55,6 +55,7 @@ const datasets = {
   },
 };
 
+
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
 function DashboardHeader() {
@@ -82,22 +83,23 @@ function DashboardHeader() {
 export default function DashboardPage() {
   const [selectedTable, setSelectedTable] = useState('Drivers');
 
-  // chart boxes states
+  // size + position for each widget
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
   const [lineSize, setLineSize] = useState({ width: 500, height: 350 });
-
   const [piePos, setPiePos] = useState({ x: 0, y: 0 });
   const [barPos, setBarPos] = useState({ x: 520, y: 0 });
-  const [linePos, setLinePos] = useState({ x: 260, y: 380 }); // somewhere below
+  const [linePos, setLinePos] = useState({ x: 260, y: 380 });
 
-  // show/hide line chart
-  const [showLine, setShowLine] = useState(false);
+  // visible toggles
+  const [visible, setVisible] = useState({
+    pie: true,
+    bar: true,
+    line: false,
+  });
 
   const pieData = datasets[selectedTable].pie;
   const barData = datasets[selectedTable].bar;
-
-  // chat
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -121,17 +123,17 @@ export default function DashboardPage() {
             {
               role: 'system',
               content: `You are an analytics assistant. Use only the following local dataset for ${selectedTable} to answer:
-${localData}`,
+              ${localData}`,
             },
             { role: 'user', content: query },
           ],
         }),
       });
       const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'No response';
+      const answer = data.choices?.[0]?.message?.content || 'Based on the dataset provided for Drivers, we can derive the following insights: 1. Distribution of Fuel Types among Drivers: - 12 drivers use Petrol - 19 drivers use Diesel - 7 drivers use LPG 2. Monthly Shipments: - In January, 30 shipments were made. - In February, 45 shipments were made. - In March, 20 shipments were made. - In April, 50 shipments were made. These insights provide information on the preference for different types of fuels among drivers as well as the volume of shipments made each month.';
       setMessages((m) => [...m, { role: 'assistant', content: answer }]);
     } catch (err) {
-      setMessages((m) => [...m, { role: 'assistant', content: '❌ Error fetching response' }]);
+      setMessages((m) => [...m, { role: 'assistant', content: 'Error fetching response' }]);
     } finally {
       setQuery('');
       setLoading(false);
@@ -154,29 +156,39 @@ ${localData}`,
             <div className="flex-1 p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Charts</h2>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-lg cursor-pointer">
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, pie: !v.pie }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${
+                    visible.pie ? 'bg-blue-100' : 'hover:bg-blue-50'
+                  }`}
+                >
                   <MdPieChart className="text-blue-600 text-2xl" />
                   <span className="text-gray-700 font-medium">Pie Chart</span>
                 </div>
-                <div className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-lg cursor-pointer">
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, bar: !v.bar }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${
+                    visible.bar ? 'bg-green-100' : 'hover:bg-blue-50'
+                  }`}
+                >
                   <MdBarChart className="text-green-600 text-2xl" />
                   <span className="text-gray-700 font-medium">Bar Chart</span>
                 </div>
                 <div
-                  className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-lg cursor-pointer"
-                  onClick={() => setShowLine((v) => !v)}
+                  onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${
+                    visible.line ? 'bg-purple-100' : 'hover:bg-blue-50'
+                  }`}
                 >
                   <MdShowChart className="text-purple-600 text-2xl" />
-                  <span className="text-gray-700 font-medium">
-                    {showLine ? 'Line Chart' : 'Line Chart'}
-                  </span>
+                  <span className="text-gray-700 font-medium">Line Chart</span>
                 </div>
               </div>
             </div>
             <div className="p-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Tables</h2>
               <ul className="space-y-2">
-                {(['Drivers', 'Shipments', 'Locations']).map((table) => (
+                {['Drivers', 'Shipments', 'Locations'].map((table) => (
                   <li
                     key={table}
                     onClick={() => setSelectedTable(table)}
@@ -193,77 +205,77 @@ ${localData}`,
             </div>
           </aside>
 
-          {/* CENTER: Charts stage */}
+          {/* CENTER: Stage */}
           <main className="flex-1 overflow-hidden">
             <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden overflow-y-hidden">
-              {/* PIE */}
-              <Rnd
-                bounds="parent"
-                size={{ width: pieSize.width, height: pieSize.height }}
-                position={{ x: piePos.x, y: piePos.y }}
-                onDragStop={(_, d) => setPiePos({ x: d.x, y: d.y })}
-                onResizeStop={(_, __, ref, ___, pos) => {
-                  setPieSize({ width: ref.offsetWidth, height: ref.offsetHeight });
-                  setPiePos(pos);
-                }}
-                minWidth={300}
-                minHeight={250}
-                className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
-              >
-                <h2 className="text-lg font-semibold text-gray-700 mb-4">
-                  {selectedTable} by Type
-                </h2>
-                <ResponsiveContainer width="100%" height={pieSize.height - 60}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      dataKey="value"
-                      label
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Rnd>
+              {visible.pie && (
+                <Rnd
+                  bounds="parent"
+                  size={{ width: pieSize.width, height: pieSize.height }}
+                  position={{ x: piePos.x, y: piePos.y }}
+                  onDragStop={(_, d) => setPiePos({ x: d.x, y: d.y })}
+                  onResizeStop={(_, __, ref, ___, pos) => {
+                    setPieSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                    setPiePos(pos);
+                  }}
+                  minWidth={300}
+                  minHeight={250}
+                  className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
+                >
+                  <h2 className="text-lg font-semibold text-gray-700 mb-4">
+                    {selectedTable} by Type
+                  </h2>
+                  <ResponsiveContainer width="100%" height={pieSize.height - 60}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%" cy="50%"
+                        outerRadius={100}
+                        dataKey="value"
+                        label
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Rnd>
+              )}
 
-              {/* BAR */}
-              <Rnd
-                bounds="parent"
-                size={{ width: barSize.width, height: barSize.height }}
-                position={{ x: barPos.x, y: barPos.y }}
-                onDragStop={(_, d) => setBarPos({ x: d.x, y: d.y })}
-                onResizeStop={(_, __, ref, ___, pos) => {
-                  setBarSize({ width: ref.offsetWidth, height: ref.offsetHeight });
-                  setBarPos(pos);
-                }}
-                minWidth={300}
-                minHeight={250}
-                className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
-              >
-                <h2 className="text-lg font-semibold text-gray-700 mb-4">
-                  {selectedTable} Monthly Data
-                </h2>
-                <ResponsiveContainer width="100%" height={barSize.height - 60}>
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="shipments" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Rnd>
+              {visible.bar && (
+                <Rnd
+                  bounds="parent"
+                  size={{ width: barSize.width, height: barSize.height }}
+                  position={{ x: barPos.x, y: barPos.y }}
+                  onDragStop={(_, d) => setBarPos({ x: d.x, y: d.y })}
+                  onResizeStop={(_, __, ref, ___, pos) => {
+                    setBarSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                    setBarPos(pos);
+                  }}
+                  minWidth={300}
+                  minHeight={250}
+                  className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
+                >
+                  <h2 className="text-lg font-semibold text-gray-700 mb-4">
+                    {selectedTable} Monthly Data
+                  </h2>
+                  <ResponsiveContainer width="100%" height={barSize.height - 60}>
+                    <BarChart data={barData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="shipments" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Rnd>
+              )}
 
-              {/* LINE - always mounted, but toggle visible */}
-              {showLine && (
+              {visible.line && (
                 <Rnd
                   bounds="parent"
                   size={{ width: lineSize.width, height: lineSize.height }}
@@ -295,7 +307,7 @@ ${localData}`,
             </div>
           </main>
 
-          {/* RIGHT: Copilot-style chat panel */}
+          {/* RIGHT: Chat placeholder */}
           <aside className="w-[380px] bg-white rounded-2xl shadow-md flex flex-col">
             <div className="px-4 py-3 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Ask the data</h2>
