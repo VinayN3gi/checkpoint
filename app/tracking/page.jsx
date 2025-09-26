@@ -8,27 +8,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../lib/firebase"
 import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, getDocs, getDoc, GeoPoint, Timestamp } from "firebase/firestore";
 
-// --- Static Driver Data with Safety Notifications ---
-const drivers = [
-  {
-    id: 1,
-    name: "Driver A - Petrol Tanker",
-    location: [28.6139, 77.209], // Delhi
-    safetyNotification: null,
-  },
-  {
-    id: 2,
-    name: "Driver B - Diesel Truck",
-    location: [19.076, 72.8777], // Mumbai
-    safetyNotification: "⚠️ Engine overheating detected near Toll Plaza",
-  },
-  {
-    id: 3,
-    name: "Driver C - LPG Ship",
-    location: [13.0827, 80.2707], // Chennai
-    safetyNotification: "⚠️ Minor oil leakage observed at port dock",
-  },
-];
+
 
 function formatFirestoreTimestamp(ts) {
   if (!ts) return ""; // handle null
@@ -50,43 +30,50 @@ function formatFirestoreTimestamp(ts) {
 
 // --- Driver List Component ---
 function DriverList({ drivers, selectedDriver, onSelect }) {
+
   return (
     <aside className="w-1/5 bg-white p-4 rounded-lg shadow border border-gray-200">
       <h2 className="text-lg font-semibold mb-4 text-gray-800">Drivers</h2>
-      {drivers.map((driver) => (
-        <div
-          key={driver.id}
-          className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${selectedDriver.id === driver.id
-            ? "bg-blue-700 text-white shadow border-blue-800 "
-            : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
-            }`}
-          onClick={() => onSelect(driver)}
-        >
-          {driver.name}
-        </div>
-      ))}
+      {
+        drivers.map((driver, idx) => (
+          <div
+            key={driver.id}
+            className={`p-3 mb-2 rounded cursor-pointer transition font-medium border-2 ${drivers[selectedDriver].id === driver.id
+              ? "bg-blue-700 text-white shadow border-blue-800 "
+              : "bg-gray-200 text-gray-800 border-gray-400/40 hover:bg-gray-300"
+              }`}
+            onClick={() => onSelect(idx)}
+          >
+            <span>{driver.name}</span>
+            <br />
+            <span className="text-sm">{driver.vehicle}</span>
+          </div>
+        ))
+      }
     </aside>
   );
 }
 
 // --- Map Panel Component ---
 function MapPanel({ driver }) {
+  let locArr = [driver.location.latitude, driver.location.longitude];
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 rounded-lg shadow bg-white border border-gray-200">
       <div className="w-full h-[80%] rounded-lg overflow-hidden border border-gray-300">
         <Map
           height={window.innerHeight * 0.65}
-          defaultCenter={driver.location}
-          center={driver.location}
+          defaultCenter={locArr}
+          center={locArr}
           defaultZoom={15}
         >
-          <Marker anchor={driver.location}>
+          <Marker anchor={locArr}>
             <div className="w-8 h-8 bg-blue-700 text-white rounded-full flex items-center justify-center font-bold shadow">
-              {driver.name.split(" ")[1][0]}
+              {driver.name[0]}
             </div>
           </Marker>
           <Overlay
-            anchor={driver.location}
+            anchor={locArr}
             offset={[60, 20]}
           ></Overlay>
         </Map>
@@ -169,24 +156,27 @@ function SafetyPanel({ safetyMessage }) {
 
 // --- Main App Component ---
 export default function App() {
-  const [selectedDriver, setSelectedDriver] = useState(drivers[0]);
   const [notif, setNotif] = useState(null);
   const [concerns, setConcerns] = useState(null);
+
+  const [drivers, setDrivers] = useState(null);
+  const [selectedDriver, setSelectedDriver] = useState(null);
   const [cps, setCps] = useState(null);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "deliveries"),
-      where("active", "==", true)
-    );
+    if (selectedDriver !== null) {
+      const q = query(
+        collection(db, "deliveries"),
+        where("driverID", "==", drivers[selectedDriver].id)
+      );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setCps(data[0].checkpoints);
-    });
-
-    return () => unsubscribe();
-  }, []);
+      getDocs(q).then(e => {
+        e.forEach((doc) => {
+          setCps(doc.data().checkpoints);
+        });
+      })
+    }
+  }, [selectedDriver, drivers]);
 
   const router = useRouter();
 
@@ -206,9 +196,24 @@ export default function App() {
       setConcerns(data[data.length - 1]); // popup alert for latest message
     }
   }
+  async function getDrivers() {
+    const snapshot = await getDocs(collection(db, "drivers"));
+
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setDrivers(docs);
+  }
 
   useEffect(() => {
-    const interval = setInterval(()=>{
+    async function temp() {
+      await getDrivers();
+      setSelectedDriver(0);
+    }
+    temp();
+
+    const interval = setInterval(() => {
       fetchMessages();
       fetchConcerns();
     }, 3000); // poll every 3 sec
@@ -217,16 +222,18 @@ export default function App() {
 
   async function updateDriverLocation(driverId, lat, lng) {
     const driverRef = doc(db, "drivers", driverId);
-    await updateDoc(driverRef, { location: [lat, lng] });
+    const geoLocation = new GeoPoint(lat, lng);
+
+    await updateDoc(driverRef, { location: geoLocation });
+    await getDrivers();
   }
 
-  async function markCheckpoint(driverId) {
+  async function markCheckpoint(driverId, toChangeId) {
     // Find the active delivery for this driver
     const deliveriesRef = collection(db, "deliveries");
     const q = query(
       deliveriesRef,
       where("driverID", "==", driverId),
-      where("active", "==", true)
     );
 
     const snapshot = await getDocs(q);
@@ -238,19 +245,6 @@ export default function App() {
     // Assuming one active delivery per driver
     const deliveryDoc = snapshot.docs[0];
     const deliveryRef = doc(db, "deliveries", deliveryDoc.id);
-
-    const cpArray = Object.entries(deliveryDoc.data().checkpoints)
-      .map(([id, cp]) => ({ id, ...cp }))
-      .sort((a, b) => a.index - b.index);
-
-    let toChangeId;
-
-    for (let i of cpArray) {
-      if (i.reachedAt === null) {
-        toChangeId = i.id;
-        break;
-      }
-    }
 
     // Update the checkpoint's reachedAt timestamp
     await updateDoc(deliveryRef, {
@@ -264,7 +258,8 @@ export default function App() {
 
     await updateDoc(deliveryRef, {
       [`checkpoints.${checkpointId}`]: {
-        ...checkpoint,
+        name: checkpoint.name,
+        index: parseInt(checkpointId.split("cp")[1]) - 1,
         location: geoLocation,
         reachedAt: null
       }
@@ -274,13 +269,23 @@ export default function App() {
   const handleVerifyCheckpoint = () => {
     setNotif(null);
 
-    //updateDriverLocation("YdS7cEgFv6We3ziFoVQu", 32, 78);
-    //markCheckpoint("YdS7cEgFv6We3ziFoVQu")
+    const cpArray = Object.entries(cps)
+      .map(([id, cp]) => ({ id, ...cp }))
+      .sort((a, b) => a.index - b.index);
 
-    addCheckpoint("JfW032qMr8nZp0HM2fKl", "cp4", {
-      name: "Petroleum Plant",
-      location: { lat: 40, lng: 90 },
-    });
+    for (let i of cpArray) {
+      if (i.reachedAt === null) {
+        console.log(i);
+        updateDriverLocation(drivers[selectedDriver].id, i.location.latitude, i.location.longitude);
+        markCheckpoint(drivers[selectedDriver].id, i.id);
+        break;
+      }
+    }
+
+    /*addCheckpoint("Yo5GQYH4pRpvTmQK1ktm", "cp3", {
+      name: "Kochi Port",
+      location: { lat: 9.97, lng: 76.23 },
+    });*/
 
   };
 
@@ -327,13 +332,19 @@ export default function App() {
 
         {/* MAIN CONTENT */}
         <div className="flex flex-1 space-x-4">
-          <DriverList
-            drivers={drivers}
-            selectedDriver={selectedDriver}
-            onSelect={setSelectedDriver}
-          />
+          {
+            drivers !== null && selectedDriver !== null
+              ? <>
+                <DriverList
+                  drivers={drivers}
+                  selectedDriver={selectedDriver}
+                  onSelect={setSelectedDriver}
+                />
 
-          <MapPanel driver={selectedDriver} />
+                <MapPanel key={drivers} driver={drivers[selectedDriver]} />
+              </>
+              : null
+          }
 
           {
             cps !== null
