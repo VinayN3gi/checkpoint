@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 
-// dummy datasets
+// unified static datasets with matching categories/months
 const datasets = {
   Drivers: {
     pie: [
@@ -28,9 +28,9 @@ const datasets = {
   },
   Shipments: {
     pie: [
-      { name: 'Delivered', value: 22 },
-      { name: 'Pending', value: 9 },
-      { name: 'Cancelled', value: 4 },
+      { name: 'Petrol', value: 5 },
+      { name: 'Diesel', value: 15 },
+      { name: 'LPG', value: 8 },
     ],
     bar: [
       { name: 'Jan', shipments: 15 },
@@ -41,10 +41,9 @@ const datasets = {
   },
   Locations: {
     pie: [
-      { name: 'North', value: 14 },
-      { name: 'South', value: 8 },
-      { name: 'East', value: 11 },
-      { name: 'West', value: 6 },
+      { name: 'Petrol', value: 7 },
+      { name: 'Diesel', value: 10 },
+      { name: 'LPG', value: 5 },
     ],
     bar: [
       { name: 'Jan', shipments: 40 },
@@ -54,7 +53,6 @@ const datasets = {
     ],
   },
 };
-
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -87,19 +85,57 @@ export default function DashboardPage() {
   const [pieSize, setPieSize] = useState({ width: 500, height: 350 });
   const [barSize, setBarSize] = useState({ width: 500, height: 350 });
   const [lineSize, setLineSize] = useState({ width: 500, height: 350 });
-  const [piePos, setPiePos] = useState({ x: 0, y: 0 });
-  const [barPos, setBarPos] = useState({ x: 520, y: 0 });
-  const [linePos, setLinePos] = useState({ x: 260, y: 380 });
+  const [piePos, setPiePos] = useState({ x: 0, y: 100 });
+  const [barPos, setBarPos] = useState({ x: 520, y: 100 });
+  const [linePos, setLinePos] = useState({ x: 260, y: 480 });
 
-  // visible toggles
+  // visible toggles – line true by default
   const [visible, setVisible] = useState({
     pie: true,
     bar: true,
-    line: false,
+    line: true,
   });
 
-  const pieData = datasets[selectedTable].pie;
-  const barData = datasets[selectedTable].bar;
+  // X and Y table drop states
+  const [xTable, setXTable] = useState(null);
+  const [yTable, setYTable] = useState(null);
+
+  // drag handlers for table names
+  const handleDragStart = (e, table) => {
+    e.dataTransfer.setData("table", table);
+  };
+
+  // combine pie data (category-wise)
+  let combinedPie = [];
+  if (xTable && yTable) {
+    const xPie = datasets[xTable].pie;
+    const yPie = datasets[yTable].pie;
+    combinedPie = xPie.map((x) => {
+      const y = yPie.find((yy) => yy.name === x.name);
+      return {
+        name: x.name,
+        xValue: x.value,
+        yValue: y ? y.value : 0,
+      };
+    });
+  }
+
+  // combine bar/line data (month-wise)
+  let combinedBarLine = [];
+  if (xTable && yTable) {
+    const xBar = datasets[xTable].bar;
+    const yBar = datasets[yTable].bar;
+    combinedBarLine = xBar.map((x) => {
+      const y = yBar.find((yy) => yy.name === x.name);
+      return {
+        name: x.name,
+        xShipments: x.shipments,
+        yShipments: y ? y.shipments : 0,
+      };
+    });
+  }
+
+  // chat state unchanged
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -108,7 +144,6 @@ export default function DashboardPage() {
     if (!query.trim()) return;
     setMessages((m) => [...m, { role: 'user', content: query }]);
     setLoading(true);
-
     try {
       const localData = JSON.stringify(datasets[selectedTable], null, 2);
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -130,7 +165,7 @@ export default function DashboardPage() {
         }),
       });
       const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'Based on the dataset provided for Drivers, we can derive the following insights: 1. Distribution of Fuel Types among Drivers: - 12 drivers use Petrol - 19 drivers use Diesel - 7 drivers use LPG 2. Monthly Shipments: - In January, 30 shipments were made. - In February, 45 shipments were made. - In March, 20 shipments were made. - In April, 50 shipments were made. These insights provide information on the preference for different types of fuels among drivers as well as the volume of shipments made each month.';
+      const answer = data.choices?.[0]?.message?.content || 'No response';
       setMessages((m) => [...m, { role: 'assistant', content: answer }]);
     } catch (err) {
       setMessages((m) => [...m, { role: 'assistant', content: 'Error fetching response' }]);
@@ -191,6 +226,8 @@ export default function DashboardPage() {
                 {['Drivers', 'Shipments', 'Locations'].map((table) => (
                   <li
                     key={table}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, table)}
                     onClick={() => setSelectedTable(table)}
                     className={`p-2 rounded-lg cursor-pointer font-medium ${
                       selectedTable === table
@@ -207,6 +244,24 @@ export default function DashboardPage() {
 
           {/* CENTER: Stage */}
           <main className="flex-1 overflow-hidden">
+            {/* Drop boxes for X and Y tables */}
+            <div className="flex space-x-4 mb-4">
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => setXTable(e.dataTransfer.getData("table"))}
+                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-20 flex items-center justify-center text-gray-500"
+              >
+                {xTable ? `X Axis Table: ${xTable}` : "Drag a table here for X Axis"}
+              </div>
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => setYTable(e.dataTransfer.getData("table"))}
+                className="flex-1 border-2 border-dashed rounded-lg p-3 text-center h-20 flex items-center justify-center text-gray-500"
+              >
+                {yTable ? `Y Axis Table: ${yTable}` : "Drag a table here for Y Axis"}
+              </div>
+            </div>
+
             <div className="relative w-full h-full overflow-auto rounded-2xl overflow-x-hidden overflow-y-hidden">
               {visible.pie && (
                 <Rnd
@@ -223,25 +278,44 @@ export default function DashboardPage() {
                   className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
                 >
                   <h2 className="text-lg font-semibold text-gray-700 mb-4">
-                    {selectedTable} by Type
+                    Combined Pie ({xTable || 'X'} vs {yTable || 'Y'})
                   </h2>
-                  <ResponsiveContainer width="100%" height={pieSize.height - 60}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%" cy="50%"
-                        outerRadius={100}
-                        dataKey="value"
-                        label
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {combinedPie.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={pieSize.height - 60}>
+                      <PieChart>
+                        <Pie
+                          data={combinedPie}
+                          dataKey="xValue"
+                          cx="30%" cy="50%"
+                          outerRadius={80}
+                          fill="#3b82f6"
+                          nameKey="name"
+                          label
+                        >
+                          {combinedPie.map((entry, index) => (
+                            <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Pie
+                          data={combinedPie}
+                          dataKey="yValue"
+                          cx="70%" cy="50%"
+                          outerRadius={80}
+                          fill="#10b981"
+                          nameKey="name"
+                          label
+                        >
+                          {combinedPie.map((entry, index) => (
+                            <Cell key={index} fill={COLORS[(index + 1) % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-gray-400">Drag two tables above to see combined pie chart.</p>
+                  )}
                 </Rnd>
               )}
 
@@ -260,18 +334,23 @@ export default function DashboardPage() {
                   className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
                 >
                   <h2 className="text-lg font-semibold text-gray-700 mb-4">
-                    {selectedTable} Monthly Data
+                    Combined Bar ({xTable || 'X'} vs {yTable || 'Y'})
                   </h2>
-                  <ResponsiveContainer width="100%" height={barSize.height - 60}>
-                    <BarChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="shipments" fill="#3b82f6" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {combinedBarLine.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={barSize.height - 60}>
+                      <BarChart data={combinedBarLine}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="xShipments" fill="#3b82f6" name={`${xTable} Shipments`} />
+                        <Bar dataKey="yShipments" fill="#10b981" name={`${yTable} Shipments`} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-gray-400">Drag two tables above to see combined bar chart.</p>
+                  )}
                 </Rnd>
               )}
 
@@ -290,24 +369,29 @@ export default function DashboardPage() {
                   className="bg-white rounded-2xl shadow p-4 flex flex-col absolute"
                 >
                   <h2 className="text-lg font-semibold text-gray-700 mb-4">
-                    {selectedTable} Trend
+                    Combined Line ({xTable || 'X'} vs {yTable || 'Y'})
                   </h2>
-                  <ResponsiveContainer width="100%" height={lineSize.height - 60}>
-                    <LineChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="shipments" stroke="#8b5cf6" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {combinedBarLine.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={lineSize.height - 60}>
+                      <LineChart data={combinedBarLine}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="xShipments" stroke="#3b82f6" strokeWidth={2} name={`${xTable} Shipments`} />
+                        <Line type="monotone" dataKey="yShipments" stroke="#10b981" strokeWidth={2} name={`${yTable} Shipments`} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-gray-400">Drag two tables above to see combined line chart.</p>
+                  )}
                 </Rnd>
               )}
             </div>
           </main>
 
-          {/* RIGHT: Chat placeholder */}
+          {/* RIGHT: Chat panel unchanged */}
           <aside className="w-[380px] bg-white rounded-2xl shadow-md flex flex-col">
             <div className="px-4 py-3 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Ask the data</h2>
