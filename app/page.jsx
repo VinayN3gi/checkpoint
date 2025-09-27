@@ -4,9 +4,9 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer,
-  LineChart,Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
+  LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
-import { MdPieChart, MdBarChart ,MdShowChart  } from 'react-icons/md';
+import { MdPieChart, MdBarChart, MdShowChart } from 'react-icons/md';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import DashboardHeader from '../components/DashboardHeader';
@@ -100,8 +100,8 @@ export default function DashboardPage() {
     pie: false,
     bar: false,
     stack: false,
-    line: false, 
-    radar:false
+    line: false,
+    radar: false
   });
 
   const [xTable, setXTable] = useState(null);
@@ -136,9 +136,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
+  const [chatOpen, setChatOpen] = useState(false);
+
   const handleSend = async () => {
     if (!query.trim() || loading) return;
-    
+
     const userMessage = { role: 'user', content: query };
     setMessages((m) => [...m, userMessage]);
     setQuery('');
@@ -178,7 +180,7 @@ export default function DashboardPage() {
       }
 
       let assistantContent = '';
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -189,7 +191,7 @@ export default function DashboardPage() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6).trim();
-            
+
             if (data === '[DONE]') {
               setIsStreaming(false);
               setMessages((m) => {
@@ -209,7 +211,7 @@ export default function DashboardPage() {
               const parsed = JSON.parse(data);
               if (parsed.content) {
                 assistantContent += parsed.content;
-                
+
                 setMessages((m) => {
                   const newMessages = [...m];
                   if (newMessages[assistantMessageIndex]) {
@@ -251,6 +253,10 @@ export default function DashboardPage() {
     }
   };
 
+  const toggleChat = () => {
+    setChatOpen(!chatOpen);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 100 }}
@@ -260,79 +266,76 @@ export default function DashboardPage() {
       className="min-h-screen"
     >
       <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
-        <DashboardHeader />
+        
+        <DashboardHeader toggleChat={toggleChat} />
+
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* LEFT */}
-       <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
-  {/* CHARTS SECTION */}
-  <div className="border-b border-gray-200">
-    <h2 className="text-lg font-semibold text-gray-800 px-4 pt-4">Charts</h2>
-    <div className="mt-2 px-4 space-y-3 h-64 overflow-y-auto scrollbar-hide">
-      <div
-        onClick={() => setVisible((v) => ({ ...v, pie: !v.pie }))}
-        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-          visible.pie ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-blue-50'
-        }`}
-      >
-        <MdPieChart className="text-blue-600 text-2xl" />
-        <span className="text-gray-700 font-medium">Pie Chart</span>
-      </div>
-      <div
-        onClick={() => setVisible((v) => ({ ...v, bar: !v.bar }))}
-        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-          visible.bar ? 'bg-green-100 border-l-4 border-green-600' : 'hover:bg-blue-50'
-        }`}
-      >
-        <MdBarChart className="text-green-600 text-2xl" />
-        <span className="text-gray-700 font-medium">Bar Chart</span>
-      </div>
-      <div
-        onClick={() => setVisible((v) => ({ ...v, stack: !v.stack }))}
-        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-          visible.stack ? 'bg-purple-100 border-l-4 border-purple-600' : 'hover:bg-blue-50'
-        }`}
-      >
-        <MdBarChart className="text-purple-600 text-2xl" />
-        <span className="text-gray-700 font-medium">Stacked Bar</span>
-      </div>
-      <div
-        onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
-        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-          visible.line ? 'bg-red-100 border-l-4 border-red-600' : 'hover:bg-blue-50'
-        }`}
-      >
-        <MdShowChart className="text-red-600 text-2xl" />
-        <span className="text-gray-700 font-medium">Line Chart</span>
-      </div>
-      <div
-        onClick={() => setVisible((v) => ({ ...v, radar: !v.radar }))}
-        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-          visible.radar ? 'bg-pink-100 border-l-4 border-pink-600' : 'hover:bg-blue-50'
-        }`}
-      >
-        <GiRadarSweep className="text-pink-600 text-2xl" />
-        <span className="text-gray-700 font-medium">Radar Chart</span>
-      </div>
-      {/* add more chart toggles here */}
-    </div>
-  </div>
-
-        {/* TABLES SECTION */}
-          <div className="flex-1 px-4 py-4 overflow-y-auto scrollbar-hide">
-            <ul className="space-y-2">
-              {Object.keys(datasets).map((table) => (
-                <li
-                  key={table}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, table)}
-                  className="p-2 rounded-md cursor-pointer font-medium bg-gray-200/20 hover:bg-blue-50 transition-colors duration-200 text-gray-700 shadow-sm"
+          <aside className="w-64 bg-white shadow-md flex flex-col rounded-2xl overflow-hidden">
+            {/* CHARTS SECTION */}
+            <div className="border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 px-4 pt-4">Charts</h2>
+              <div className="mt-2 px-4 space-y-3 h-64 overflow-y-auto scrollbar-hide">
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, pie: !v.pie }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${visible.pie ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-blue-50'
+                    }`}
                 >
-                  {table}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+                  <MdPieChart className="text-blue-600 text-2xl" />
+                  <span className="text-gray-700 font-medium">Pie Chart</span>
+                </div>
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, bar: !v.bar }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${visible.bar ? 'bg-green-100 border-l-4 border-green-600' : 'hover:bg-blue-50'
+                    }`}
+                >
+                  <MdBarChart className="text-green-600 text-2xl" />
+                  <span className="text-gray-700 font-medium">Bar Chart</span>
+                </div>
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, stack: !v.stack }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${visible.stack ? 'bg-purple-100 border-l-4 border-purple-600' : 'hover:bg-blue-50'
+                    }`}
+                >
+                  <MdBarChart className="text-purple-600 text-2xl" />
+                  <span className="text-gray-700 font-medium">Stacked Bar</span>
+                </div>
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, line: !v.line }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${visible.line ? 'bg-red-100 border-l-4 border-red-600' : 'hover:bg-blue-50'
+                    }`}
+                >
+                  <MdShowChart className="text-red-600 text-2xl" />
+                  <span className="text-gray-700 font-medium">Line Chart</span>
+                </div>
+                <div
+                  onClick={() => setVisible((v) => ({ ...v, radar: !v.radar }))}
+                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors duration-200 ${visible.radar ? 'bg-pink-100 border-l-4 border-pink-600' : 'hover:bg-blue-50'
+                    }`}
+                >
+                  <GiRadarSweep className="text-pink-600 text-2xl" />
+                  <span className="text-gray-700 font-medium">Radar Chart</span>
+                </div>
+                {/* add more chart toggles here */}
+              </div>
+            </div>
+
+            {/* TABLES SECTION */}
+            <div className="flex-1 px-4 py-4 overflow-y-auto scrollbar-hide">
+              <ul className="space-y-2">
+                {Object.keys(datasets).map((table) => (
+                  <li
+                    key={table}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, table)}
+                    className="p-2 rounded-md cursor-pointer font-medium bg-gray-200/20 hover:bg-blue-50 transition-colors duration-200 text-gray-700 shadow-sm"
+                  >
+                    {table}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
 
           {/* CENTER */}
           <main className="flex-1">
@@ -444,7 +447,7 @@ export default function DashboardPage() {
               )}
 
               {visible.radar && (
-              <Rnd bounds="parent" size={radarSize} position={radarPos}
+                <Rnd bounds="parent" size={radarSize} position={radarPos}
                   onDragStop={(_, d) => setRadarPos({ x: d.x, y: d.y })}
                   onResizeStop={(_, __, ref, ___, pos) => {
                     setRadarSize({ width: ref.offsetWidth, height: ref.offsetHeight });
@@ -452,22 +455,22 @@ export default function DashboardPage() {
                   }}
                   minWidth={300} minHeight={250}
                   className="bg-white rounded-2xl shadow p-4 flex flex-col absolute">
-                <h2 className="text-lg font-semibold text-gray-700 mb-4">Combined Radar</h2>
-                {combinedPie.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={radarSize.height - 60}>
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={combinedPie}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="name" />
-                      <PolarRadiusAxis />
-                      <Radar name={`${xTable} Values`} dataKey="xValue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-                      <Radar name={`${yTable} Values`} dataKey="yValue" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
-                      <Legend />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-gray-400">Drag two tables above.</p>}
-              </Rnd>
-            )}
+                  <h2 className="text-lg font-semibold text-gray-700 mb-4">Combined Radar</h2>
+                  {combinedPie.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={radarSize.height - 60}>
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={combinedPie}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="name" />
+                        <PolarRadiusAxis />
+                        <Radar name={`${xTable} Values`} dataKey="xValue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                        <Radar name={`${yTable} Values`} dataKey="yValue" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                        <Legend />
+                        <Tooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  ) : <p className="text-gray-400">Drag two tables above.</p>}
+                </Rnd>
+              )}
 
               {visible.bar && (
                 <Rnd
@@ -538,104 +541,103 @@ export default function DashboardPage() {
           </main>
 
           {/* RIGHT panel (chat) restored */}
-                  <aside className="w-[300px] bg-white rounded-2xl shadow-md flex flex-col">
-  <div className="px-3 py-2 border-b border-gray-200">
-    <h2 className="text-base font-semibold text-gray-800 text-center">Ask the data</h2>
-    <p className="text-[12px] text-gray-500 text-center">Context-aware AI powered by Ollama</p>
-  </div>
+          <aside style={{ width: chatOpen ? 300 : 0, transition: "width 200ms" }} className="bg-white rounded-2xl shadow-md flex flex-col">
+            <div className="px-3 py-2 border-b border-gray-200">
+              <h2 className="text-base font-semibold text-gray-800 text-center">Ask the data</h2>
+              <p className="text-[12px] text-gray-500 text-center">Context-aware AI powered by Ollama</p>
+            </div>
 
-  <div className="flex-1 overflow-y-auto p-3 space-y-2">
-    {messages.length === 0 && (
-      <div className="text-[12px] text-gray-500 text-center">
-        <div className="mb-2">🤖 AI ready to help with your data!</div>
-        <div className="text-gray-700 space-y-1">
-          <div>"What's the trend in shipments this quarter?"</div>
-          <div>"Compare Diesel vs Petrol distribution"</div>
-          <div>"Explain the bar chart data"</div>
-          <div>"Which vehicle type is most used?"</div>
-        </div>
-      </div>
-    )}
-    {messages.map((m, idx) => (
-      <div
-        key={idx}
-        className={`p-2 rounded-lg text-[13px] ${
-          m.role === 'user'
-            ? 'bg-blue-50 text-gray-800 ml-4 border border-blue-200'
-            : m.error
-            ? 'bg-red-50 text-red-700 mr-4 border border-red-200'
-            : 'bg-gray-50 text-gray-700 mr-4 border border-gray-200'
-        }`}
-      >
-        <div className="flex items-start space-x-2">
-          {m.role === 'user' ? (
-            <span className="text-blue-600 font-semibold text-xs">You:</span>
-          ) : (
-            <span className={`font-semibold text-xs ${m.error ? 'text-red-600' : 'text-green-600'}`}>
-              🤖 AI:
-            </span>
-          )}
-          <div className="flex-1">
-            {m.content}
-            {m.streaming && (
-              <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
-            )}
-          </div>
-        </div>
-      </div>
-    ))}
-    {loading && !isStreaming && (
-      <div className="text-[12px] text-gray-500 flex items-center space-x-2">
-        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
-        <span>Connecting to AI...</span>
-      </div>
-    )}
-  </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {messages.length === 0 && (
+                <div className="text-[12px] text-gray-500 text-center">
+                  <div className="mb-2">🤖 AI ready to help with your data!</div>
+                  <div className="text-gray-700 space-y-1">
+                    <div>"What's the trend in shipments this quarter?"</div>
+                    <div>"Compare Diesel vs Petrol distribution"</div>
+                    <div>"Explain the bar chart data"</div>
+                    <div>"Which vehicle type is most used?"</div>
+                  </div>
+                </div>
+              )}
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`p-2 rounded-lg text-[13px] ${m.role === 'user'
+                    ? 'bg-blue-50 text-gray-800 ml-4 border border-blue-200'
+                    : m.error
+                      ? 'bg-red-50 text-red-700 mr-4 border border-red-200'
+                      : 'bg-gray-50 text-gray-700 mr-4 border border-gray-200'
+                    }`}
+                >
+                  <div className="flex items-start space-x-2">
+                    {m.role === 'user' ? (
+                      <span className="text-blue-600 font-semibold text-xs">You:</span>
+                    ) : (
+                      <span className={`font-semibold text-xs ${m.error ? 'text-red-600' : 'text-green-600'}`}>
+                        🤖 AI:
+                      </span>
+                    )}
+                    <div className="flex-1">
+                      {m.content}
+                      {m.streaming && (
+                        <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {loading && !isStreaming && (
+                <div className="text-[12px] text-gray-500 flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  <span>Connecting to AI...</span>
+                </div>
+              )}
+            </div>
 
-  <div className="p-2 border-t border-gray-200">
-    {/* Context indicator */}
-    <div className="flex items-center justify-between mb-2 text-[10px] text-gray-500">
-      <div className="flex items-center space-x-1">
-        <span>📊 Context:</span>
-        <span className="text-blue-600">
-          {[xTable, yTable].filter(Boolean).join(' + ') || 'No tables'}
-        </span>
-      </div>
-      <div className="flex items-center space-x-1">
-        <span>📈 Charts:</span>
-        <span className="text-green-600">
-          {Object.entries(visible).filter(([_, v]) => v).length}
-        </span>
-      </div>
-    </div>
-    
-    <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-        placeholder="Ask about your data and charts..."
-        className="flex-1 bg-transparent outline-none px-1 text-[13px] text-gray-800"
-        disabled={loading}
-      />
-      <button
-        disabled={loading || !query.trim()}
-        className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-        onClick={handleSend}
-      >
-        {loading ? (
-          <>
-            <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-            <span>...</span>
-          </>
-        ) : (
-          <span>Send</span>
-        )}
-      </button>
-    </div>
-  </div>
-</aside>
+            <div className="p-2 border-t border-gray-200">
+              {/* Context indicator */}
+              <div className="flex items-center justify-between mb-2 text-[10px] text-gray-500">
+                <div className="flex items-center space-x-1">
+                  <span>📊 Context:</span>
+                  <span className="text-blue-600">
+                    {[xTable, yTable].filter(Boolean).join(' + ') || 'No tables'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <span>📈 Charts:</span>
+                  <span className="text-green-600">
+                    {Object.entries(visible).filter(([_, v]) => v).length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder="Ask about your data and charts..."
+                  className="flex-1 bg-transparent outline-none px-1 text-[13px] text-gray-800"
+                  disabled={loading}
+                />
+                <button
+                  disabled={loading || !query.trim()}
+                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  onClick={handleSend}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                      <span>...</span>
+                    </>
+                  ) : (
+                    <span>Send</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </aside>
 
         </div>
       </div>
