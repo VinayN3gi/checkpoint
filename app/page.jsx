@@ -10,6 +10,7 @@ import { MdPieChart, MdBarChart, MdShowChart } from 'react-icons/md';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import DashboardHeader from '../components/DashboardHeader';
+import ThinkingAnimation from '../components/ThinkingAnimation';
 import { GiRadarSweep } from "react-icons/gi";
 
 const datasets = {
@@ -148,9 +149,9 @@ export default function DashboardPage() {
     setLoading(true);
     setIsStreaming(true);
 
-    // Add empty assistant message that will be populated with streaming content
+    // Add thinking message that will be replaced with streaming content
     const assistantMessageIndex = messages.length + 1;
-    setMessages((m) => [...m, { role: 'assistant', content: '', streaming: true }]);
+    setMessages((m) => [...m, { role: 'assistant', content: '', streaming: true, thinking: true }]);
 
     try {
       // Get current context for RAG
@@ -200,7 +201,8 @@ export default function DashboardPage() {
                 if (newMessages[assistantMessageIndex]) {
                   newMessages[assistantMessageIndex] = {
                     ...newMessages[assistantMessageIndex],
-                    streaming: false
+                    streaming: false,
+                    thinking: false
                   };
                 }
                 return newMessages;
@@ -208,24 +210,23 @@ export default function DashboardPage() {
               return;
             }
 
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                assistantContent += parsed.content;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  assistantContent += parsed.content;
 
-                setMessages((m) => {
-                  const newMessages = [...m];
-                  if (newMessages[assistantMessageIndex]) {
-                    newMessages[assistantMessageIndex] = {
-                      ...newMessages[assistantMessageIndex],
-                      content: assistantContent
-                    };
-                  }
-                  return newMessages;
-                });
-              }
-
-              if (parsed.error) {
+                  setMessages((m) => {
+                    const newMessages = [...m];
+                    if (newMessages[assistantMessageIndex]) {
+                      newMessages[assistantMessageIndex] = {
+                        ...newMessages[assistantMessageIndex],
+                        content: assistantContent,
+                        thinking: false // Remove thinking state when content arrives
+                      };
+                    }
+                    return newMessages;
+                  });
+                }              if (parsed.error) {
                 throw new Error(parsed.content || 'Streaming error');
               }
             } catch (parseError) {
@@ -243,6 +244,7 @@ export default function DashboardPage() {
             role: 'assistant',
             content: `I apologize, but I encountered an error: ${error.message}. Please make sure Ollama is running locally and try again.`,
             streaming: false,
+            thinking: false,
             error: true
           };
         }
@@ -598,20 +600,20 @@ export default function DashboardPage() {
                       </span>
                     )}
                     <div className="flex-1">
-                      {m.content}
-                      {m.streaming && (
-                        <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
+                      {m.thinking ? (
+                        <ThinkingAnimation />
+                      ) : (
+                        <>
+                          {m.content}
+                          {m.streaming && !m.thinking && (
+                            <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
-              {loading && !isStreaming && (
-                <div className="text-[12px] text-gray-500 flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
-                  <span>Connecting to AI...</span>
-                </div>
-              )}
             </div>
 
             <div className="p-2 border-t border-gray-200">
@@ -643,17 +645,10 @@ export default function DashboardPage() {
                 />
                 <button
                   disabled={loading || !query.trim()}
-                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleSend}
                 >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                      <span>...</span>
-                    </>
-                  ) : (
-                    <span>Send</span>
-                  )}
+                  {loading ? 'Sending...' : 'Send'}
                 </button>
               </div>
             </div>
