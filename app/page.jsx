@@ -134,39 +134,120 @@ export default function DashboardPage() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleSend = async () => {
-    if (!query.trim()) return;
-    setMessages((m) => [...m, { role: 'user', content: query }]);
+    if (!query.trim() || loading) return;
+    
+    const userMessage = { role: 'user', content: query };
+    setMessages((m) => [...m, userMessage]);
+    setQuery('');
     setLoading(true);
+    setIsStreaming(true);
+
+    // Add empty assistant message that will be populated with streaming content
+    const assistantMessageIndex = messages.length + 1;
+    setMessages((m) => [...m, { role: 'assistant', content: '', streaming: true }]);
+
     try {
-      const localData = JSON.stringify(datasets[xTable || 'Drivers'], null, 2);
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Get current context for RAG
+      const activeDatasets = [xTable, yTable].filter(Boolean);
+      const visibleCharts = Object.entries(visible)
+        .filter(([_, isVisible]) => isVisible)
+        .map(([chartType]) => chartType);
+
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: `Use only the following local dataset for ${xTable || 'Drivers'} to answer:
-              ${localData}`,
-            },
-            { role: 'user', content: query },
-          ],
+          messages: [userMessage], // Send only the current user message
+          activeDatasets,
+          visibleCharts,
         }),
       });
-      const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'No response';
-      setMessages((m) => [...m, { role: 'assistant', content: answer }]);
-    } catch {
-      setMessages((m) => [...m, { role: 'assistant', content: 'Error fetching response' }]);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      let assistantContent = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            
+            if (data === '[DONE]') {
+              setIsStreaming(false);
+              setMessages((m) => {
+                const newMessages = [...m];
+                if (newMessages[assistantMessageIndex]) {
+                  newMessages[assistantMessageIndex] = {
+                    ...newMessages[assistantMessageIndex],
+                    streaming: false
+                  };
+                }
+                return newMessages;
+              });
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                assistantContent += parsed.content;
+                
+                setMessages((m) => {
+                  const newMessages = [...m];
+                  if (newMessages[assistantMessageIndex]) {
+                    newMessages[assistantMessageIndex] = {
+                      ...newMessages[assistantMessageIndex],
+                      content: assistantContent
+                    };
+                  }
+                  return newMessages;
+                });
+              }
+
+              if (parsed.error) {
+                throw new Error(parsed.content || 'Streaming error');
+              }
+            } catch (parseError) {
+              console.error('Error parsing streaming data:', parseError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages((m) => {
+        const newMessages = [...m];
+        if (newMessages[assistantMessageIndex]) {
+          newMessages[assistantMessageIndex] = {
+            role: 'assistant',
+            content: `I apologize, but I encountered an error: ${error.message}. Please make sure Ollama is running locally and try again.`,
+            streaming: false,
+            error: true
+          };
+        }
+        return newMessages;
+      });
     } finally {
-      setQuery('');
       setLoading(false);
+      setIsStreaming(false);
     }
   };
 
@@ -457,51 +538,100 @@ export default function DashboardPage() {
           </main>
 
           {/* RIGHT panel (chat) restored */}
-         <aside className="w-[300px] bg-white rounded-2xl shadow-md flex flex-col">
+                  <aside className="w-[300px] bg-white rounded-2xl shadow-md flex flex-col">
   <div className="px-3 py-2 border-b border-gray-200">
     <h2 className="text-base font-semibold text-gray-800 text-center">Ask the data</h2>
-    <p className="text-[12px] text-gray-500 text-center">Natural-language queries</p>
+    <p className="text-[12px] text-gray-500 text-center">Context-aware AI powered by Ollama</p>
   </div>
 
   <div className="flex-1 overflow-y-auto p-3 space-y-2">
     {messages.length === 0 && (
       <div className="text-[12px] text-gray-500 text-center">
-        No messages yet — ask something like:
-        <div className="mt-1 text-gray-700">
-          “Show shipments trend for Q1” or “Share of Diesel vs Petrol”
+        <div className="mb-2">🤖 AI ready to help with your data!</div>
+        <div className="text-gray-700 space-y-1">
+          <div>"What's the trend in shipments this quarter?"</div>
+          <div>"Compare Diesel vs Petrol distribution"</div>
+          <div>"Explain the bar chart data"</div>
+          <div>"Which vehicle type is most used?"</div>
         </div>
       </div>
     )}
     {messages.map((m, idx) => (
       <div
         key={idx}
-        className={`p-1.5 rounded-md text-[13px] ${
+        className={`p-2 rounded-lg text-[13px] ${
           m.role === 'user'
-            ? 'bg-blue-50 text-gray-800 self-end'
-            : 'bg-gray-100 text-gray-700'
+            ? 'bg-blue-50 text-gray-800 ml-4 border border-blue-200'
+            : m.error
+            ? 'bg-red-50 text-red-700 mr-4 border border-red-200'
+            : 'bg-gray-50 text-gray-700 mr-4 border border-gray-200'
         }`}
       >
-        {m.content}
+        <div className="flex items-start space-x-2">
+          {m.role === 'user' ? (
+            <span className="text-blue-600 font-semibold text-xs">You:</span>
+          ) : (
+            <span className={`font-semibold text-xs ${m.error ? 'text-red-600' : 'text-green-600'}`}>
+              🤖 AI:
+            </span>
+          )}
+          <div className="flex-1">
+            {m.content}
+            {m.streaming && (
+              <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
+            )}
+          </div>
+        </div>
       </div>
     ))}
-    {loading && <div className="text-[12px] text-gray-500">Thinking…</div>}
+    {loading && !isStreaming && (
+      <div className="text-[12px] text-gray-500 flex items-center space-x-2">
+        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+        <span>Connecting to AI...</span>
+      </div>
+    )}
   </div>
 
   <div className="p-2 border-t border-gray-200">
-    <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-2 py-1.5">
+    {/* Context indicator */}
+    <div className="flex items-center justify-between mb-2 text-[10px] text-gray-500">
+      <div className="flex items-center space-x-1">
+        <span>📊 Context:</span>
+        <span className="text-blue-600">
+          {[xTable, yTable].filter(Boolean).join(' + ') || 'No tables'}
+        </span>
+      </div>
+      <div className="flex items-center space-x-1">
+        <span>📈 Charts:</span>
+        <span className="text-green-600">
+          {Object.entries(visible).filter(([_, v]) => v).length}
+        </span>
+      </div>
+    </div>
+    
+    <div className="flex items-center bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Ask something about the data..."
+        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+        placeholder="Ask about your data and charts..."
         className="flex-1 bg-transparent outline-none px-1 text-[13px] text-gray-800"
+        disabled={loading}
       />
       <button
-        disabled={loading}
-        className="ml-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50"
+        disabled={loading || !query.trim()}
+        className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-[12px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
         onClick={handleSend}
       >
-        {loading ? '...' : 'Send'}
+        {loading ? (
+          <>
+            <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+            <span>...</span>
+          </>
+        ) : (
+          <span>Send</span>
+        )}
       </button>
     </div>
   </div>
