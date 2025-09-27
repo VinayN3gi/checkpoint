@@ -10,7 +10,6 @@ import { MdPieChart, MdBarChart, MdShowChart } from 'react-icons/md';
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import DashboardHeader from '../components/DashboardHeader';
-import ThinkingAnimation from '../components/ThinkingAnimation';
 import { GiRadarSweep } from "react-icons/gi";
 
 const datasets = {
@@ -222,9 +221,9 @@ export default function DashboardPage() {
     setLoading(true);
     setIsStreaming(true);
 
-    // Add thinking message that will be replaced with streaming content
+    // Add empty assistant message that will be populated with streaming content
     const assistantMessageIndex = messages.length + 1;
-    setMessages((m) => [...m, { role: 'assistant', content: '', streaming: true, thinking: true }]);
+    setMessages((m) => [...m, { role: 'assistant', content: '', streaming: true, thinking: false, thinkingContent: '', displayContent: '' }]);
 
     try {
       // Get current context for RAG
@@ -288,13 +287,48 @@ export default function DashboardPage() {
                 if (parsed.content) {
                   assistantContent += parsed.content;
 
+                  // Parse thinking tags and separate content
+                  const parseThinkingContent = (fullContent) => {
+                    const thinkRegex = /<think>(.*?)<\/think>/gs;
+                    let thinking = false;
+                    let thinkingContent = '';
+                    let displayContent = fullContent;
+                    
+                    // Extract thinking content
+                    const thinkMatches = fullContent.match(thinkRegex);
+                    if (thinkMatches) {
+                      thinkingContent = thinkMatches.map(match => 
+                        match.replace(/<\/?think>/g, '')
+                      ).join(' ');
+                      
+                      // Check if we're currently inside thinking tags
+                      const lastThinkStart = fullContent.lastIndexOf('<think>');
+                      const lastThinkEnd = fullContent.lastIndexOf('</think>');
+                      thinking = lastThinkStart > lastThinkEnd;
+                      
+                      // Remove thinking tags from display content
+                      displayContent = fullContent.replace(thinkRegex, '').trim();
+                    } else if (fullContent.includes('<think>')) {
+                      // We're in the middle of thinking
+                      thinking = true;
+                      thinkingContent = fullContent.split('<think>')[1] || '';
+                      displayContent = fullContent.split('<think>')[0];
+                    }
+                    
+                    return { thinking, thinkingContent, displayContent };
+                  };
+
+                  const { thinking, thinkingContent, displayContent } = parseThinkingContent(assistantContent);
+
                   setMessages((m) => {
                     const newMessages = [...m];
                     if (newMessages[assistantMessageIndex]) {
                       newMessages[assistantMessageIndex] = {
                         ...newMessages[assistantMessageIndex],
                         content: assistantContent,
-                        thinking: false // Remove thinking state when content arrives
+                        thinking,
+                        thinkingContent,
+                        displayContent
                       };
                     }
                     return newMessages;
@@ -316,6 +350,7 @@ export default function DashboardPage() {
           newMessages[assistantMessageIndex] = {
             role: 'assistant',
             content: `I apologize, but I encountered an error: ${error.message}. Please make sure Ollama is running locally and try again.`,
+            displayContent: `I apologize, but I encountered an error: ${error.message}. Please make sure Ollama is running locally and try again.`,
             streaming: false,
             thinking: false,
             error: true
@@ -895,10 +930,10 @@ export default function DashboardPage() {
                     )}
                     <div className="flex-1">
                       {m.thinking ? (
-                        <ThinkingAnimation />
+                        <span className="text-gray-600 italic">[Think...]</span>
                       ) : (
                         <>
-                          {m.content}
+                          {m.displayContent || m.content}
                           {m.streaming && !m.thinking && (
                             <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1">|</span>
                           )}
