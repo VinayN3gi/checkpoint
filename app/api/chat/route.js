@@ -223,23 +223,7 @@ export async function POST(request) {
                   if (data.message && data.message.content) {
                     const content = data.message.content;
                     
-                    // Filter out thinking process - only show final answer
-                    if (content.includes('<think>') || content.includes('<thinking>')) {
-                      isThinking = true;
-                      continue;
-                    }
-                    
-                    if (content.includes('</think>') || content.includes('</thinking>')) {
-                      isThinking = false;
-                      continue;
-                    }
-                    
-                    // Skip content while thinking
-                    if (isThinking) {
-                      continue;
-                    }
-                    
-                    // Only send final answer content to the client
+                    // Send all content including thinking process to the client
                     finalAnswer += content;
                     const chunk = encoder.encode(`data: ${JSON.stringify({
                       content: content,
