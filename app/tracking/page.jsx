@@ -137,19 +137,38 @@ function CheckpointPanel({ checkpoints, onVerify, disabled }) {
 }
 
 // --- Safety Panel Component ---
-function SafetyPanel({ safetyMessage }) {
+function SafetyPanel({ notifs }) {
+  const [drivers, setDrivers] = useState(null);
+
+  async function getDrivers() {
+    const snapshot = await getDocs(collection(db, "drivers"));
+
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    let temp = {};
+    for (let i of docs) temp[i.id] = i.name;
+    setDrivers(temp);
+  }
+
+  useEffect(() => {
+    getDrivers();
+  }, [])
+
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 h-[30%] mt-4">
       <h2 className="text-lg font-semibold mb-4 text-gray-800">
         Safety Notifications
       </h2>
-      {safetyMessage ? (
-        <p className="text-red-600 font-medium">{safetyMessage}</p>
-      ) : (
-        <p className="text-green-600 font-medium">
-          ✅ No safety notifications raised
-        </p>
-      )}
+      {
+        notifs.length === 0 || drivers === null
+          ? <p className="text-green-600 font-medium">
+            ✅ No safety notifications raised
+          </p>
+          : notifs.map((notif, idx) => <p className="text-red-600 font-medium">{drivers[notif.driverID]}: {notif.text}</p>)
+      }
     </div>
   );
 }
@@ -157,7 +176,6 @@ function SafetyPanel({ safetyMessage }) {
 // --- Main App Component ---
 export default function App() {
   const [notifs, setNotifs] = useState(null);
-  const [concerns, setConcerns] = useState(null);
 
   const [drivers, setDrivers] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -182,14 +200,6 @@ export default function App() {
 
   const router = useRouter();
 
-  async function fetchConcerns() {
-    const res = await fetch("/api/concern");
-    const data = await res.json();
-
-    if (data.length > 0) {
-      setConcerns(data[data.length - 1]); // popup alert for latest message
-    }
-  }
   async function getDrivers() {
     const snapshot = await getDocs(collection(db, "drivers"));
 
@@ -350,8 +360,6 @@ export default function App() {
 
   };
 
-  console.log(notifs)
-
   return (
     <motion.div
       initial={{ opacity: 0, y: -100 }}
@@ -423,7 +431,7 @@ export default function App() {
                   onVerify={handleVerifyCheckpoint}
                   disabled={notifs === null}
                 />
-                <SafetyPanel safetyMessage={concerns} />
+                <SafetyPanel notifs={notifs.filter(e => e.type === "concern")} />
               </div>
               : null
           }
