@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 import { db } from "../lib/firebase"
-import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, getDocs, getDoc, GeoPoint, Timestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, getDocs, getDoc, GeoPoint, Timestamp, orderBy, writeBatch } from "firebase/firestore";
 
 
 
@@ -87,7 +87,7 @@ function MapPanel({ driver }) {
 }
 
 // --- Checkpoint Panel Component ---
-function CheckpointPanel({ checkpoints, onVerify }) {
+function CheckpointPanel({ checkpoints, onVerify, disabled }) {
   const cpArray = Object.entries(checkpoints)
     .map(([id, cp]) => ({ id, ...cp }))
     .sort((a, b) => a.index - b.index);
@@ -128,7 +128,7 @@ function CheckpointPanel({ checkpoints, onVerify }) {
       {/* Fixed Button */}
       <button
         onClick={onVerify}
-        className="w-full mt-4 bg-blue-700 text-white py-2 rounded-lg shadow hover:bg-blue-800 transition shrink-0"
+        className="w-full mt-4 bg-blue-700 text-white py-2 rounded-lg shadow hover:bg-blue-800 transition shrink-0 disabled:bg-gray-400"
       >
         Verify Next Checkpoint
       </button>
@@ -156,12 +156,14 @@ function SafetyPanel({ safetyMessage }) {
 
 // --- Main App Component ---
 export default function App() {
-  const [notif, setNotif] = useState(null);
+  const [notifs, setNotifs] = useState(null);
   const [concerns, setConcerns] = useState(null);
 
   const [drivers, setDrivers] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [cps, setCps] = useState(null);
+
+
 
   useEffect(() => {
     if (selectedDriver !== null) {
@@ -180,14 +182,6 @@ export default function App() {
 
   const router = useRouter();
 
-  async function fetchMessages() {
-    const res = await fetch("/api/message");
-    const data = await res.json();
-
-    if (data.length > 0) {
-      setNotif(data[data.length - 1]); // popup alert for latest message
-    }
-  }
   async function fetchConcerns() {
     const res = await fetch("/api/concern");
     const data = await res.json();
@@ -213,12 +207,23 @@ export default function App() {
     }
     temp();
 
-    const interval = setInterval(() => {
-      fetchMessages();
-      fetchConcerns();
-    }, 3000); // poll every 3 sec
-    return () => clearInterval(interval);
+    const q = query(
+      collection(db, "notifications"),
+      orderBy("createdAt", "asc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setNotifs(docs);
+    });
+
+    return () => unsubscribe();
   }, []);
+
+
 
   async function updateDriverLocation(driverId, lat, lng) {
     const driverRef = doc(db, "drivers", driverId);
@@ -266,8 +271,56 @@ export default function App() {
     });
   }
 
+  async function clearCheckpointNotifications() {
+    try {
+      const q = query(
+        collection(db, "notifications"),
+        where("type", "==", "checkpoint")
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        console.log("No checkpoint notifications found.");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      snapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+      console.log("All checkpoint notifications cleared!");
+    } catch (e) {
+      console.error("Error clearing checkpoint notifications: ", e);
+    }
+  }
+
+  async function deleteNotificationsByField(value) {
+    try {
+      const q = query(collection(db, "notifications"), where("text", "==", value));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return;
+      }
+
+      const batch = writeBatch(db);
+      snapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Error deleting notifications: ", error);
+    }
+  }
+
   const handleVerifyCheckpoint = () => {
-    setNotif(null);
+    //setNotif(null);
+    //clearCheckpointNotifications();
+
+    let tempNotifs = [...notifs];
 
     const cpArray = Object.entries(cps)
       .map(([id, cp]) => ({ id, ...cp }))
@@ -275,12 +328,20 @@ export default function App() {
 
     for (let i of cpArray) {
       if (i.reachedAt === null) {
-        console.log(i);
+        tempNotifs = tempNotifs.filter(n => n.text !== `Reached ${i.name}`);
+        deleteNotificationsByField(`Reached ${i.name}`);
+
         updateDriverLocation(drivers[selectedDriver].id, i.location.latitude, i.location.longitude);
         markCheckpoint(drivers[selectedDriver].id, i.id);
         break;
       }
     }
+    /*console.log(cpArray[cpArray.length-1])
+    if(cpArray[cpArray.length-1].reachedAt !== null){
+       clearCheckpointNotifications();
+       
+    }*/
+    setNotifs(tempNotifs);
 
     /*addCheckpoint("Yo5GQYH4pRpvTmQK1ktm", "cp3", {
       name: "Kochi Port",
@@ -289,11 +350,13 @@ export default function App() {
 
   };
 
+  console.log(notifs)
+
   return (
     <motion.div
-      initial={{ opacity: 0, x: 100 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -100 }}
+      initial={{ opacity: 0, y: -100 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 100 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
       className="min-h-screen"
     >
@@ -317,16 +380,22 @@ export default function App() {
         </header>
 
         {
-          notif !== null
-            ? <motion.div
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
-              className="absolute right-5 top-5 text-black shadow-blue-900 shadow-xl py-2 px-6 border-cyan-500 border-4 rounded-lg bg-white min-w-[10em]"
-            >
-              <span>{notif}</span>
-            </motion.div>
+          notifs !== null
+            ? <div className="absolute right-5 top-5 z-50">
+              {
+                notifs.map((notif, idx) => notif.type === "checkpoint" && notif.driverID === drivers[selectedDriver].id && (
+                  <motion.div key={idx}
+                    initial={{ opacity: 0, y: -100 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 100 }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                    className={`text-black mt-2 shadow-blue-900 shadow-xl py-2 px-6 border-cyan-500 border-4 rounded-lg bg-white min-w-[10em]`}
+                  >
+                    <span>{notif.text}</span>
+                  </motion.div>
+                ))
+              }
+            </div>
             : null
         }
 
@@ -352,6 +421,7 @@ export default function App() {
                 <CheckpointPanel
                   checkpoints={cps}
                   onVerify={handleVerifyCheckpoint}
+                  disabled={notifs === null}
                 />
                 <SafetyPanel safetyMessage={concerns} />
               </div>
