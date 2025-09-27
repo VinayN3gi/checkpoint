@@ -139,6 +139,79 @@ export default function DashboardPage() {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [modVis, setModVis] = useState(false);
+  
+  // Upload modal states
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  // File upload handlers
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleFileSelect = (file) => {
+    setUploadError('');
+    setUploadSuccess(false);
+    
+    // File validation
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const allowedTypes = ['.csv', '.json', '.xlsx', '.xls'];
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (file.size > maxSize) {
+      setUploadError('File size exceeds 50MB limit');
+      return;
+    }
+    
+    if (!allowedTypes.includes(fileExtension)) {
+      setUploadError('Please select a CSV, JSON, or Excel file');
+      return;
+    }
+    
+    setSelectedFile(file);
+    simulateUpload(file);
+  };
+
+  const simulateUpload = (file) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsUploading(false);
+          setUploadSuccess(true);
+          setTimeout(() => {
+            setModVis("done");
+          }, 1000);
+          return 100;
+        }
+        return prev + Math.random() * 15 + 5;
+      });
+    }, 200);
+  };
 
   const handleSend = async () => {
     if (!query.trim() || loading) return;
@@ -274,15 +347,236 @@ export default function DashboardPage() {
 
         {
           modVis === true
-            ? <div className='absolute w-[100vw] h-[100vh] z-60 bg-black/54 flex justify-center items-center'>
-              <div className='bg-white w-[50%] h-[50%] rounded-lg text-black flex justify-center items-center'>
-                <div className='text-center'>
-                  <h3>Upload Dataset</h3>
-                  <br />
-                  <input className='bg-gray-400 p-4 rounded-lg cursor-pointer' type="file"
-                    onChange={() => { setModVis("done") }} />
+            ? <div className='fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4'>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className='bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden'
+              >
+                {/* Header */}
+                <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white'>
+                  <div className='flex items-center justify-between'>
+                    <div>
+                      <h2 className='text-2xl font-bold'>Upload Dataset</h2>
+                      <p className='text-blue-100 mt-1'>Import your data to create powerful visualizations</p>
+                    </div>
+                    <button 
+                      onClick={() => setModVis(false)}
+                      className='p-2 hover:bg-white/20 rounded-full transition-colors duration-200'
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                {/* Content */}
+                <div className='p-8'>
+                  {/* Upload Area */}
+                  <div className='relative'>
+                    {!selectedFile && !isUploading && !uploadSuccess && (
+                      <div 
+                        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer group ${
+                          dragActive 
+                            ? 'border-blue-500 bg-blue-50 scale-105' 
+                            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
+                        }`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                        onClick={() => document.getElementById('file-input').click()}
+                      >
+                        <div className='space-y-4'>
+                          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
+                            dragActive 
+                              ? 'bg-blue-200 scale-110' 
+                              : 'bg-blue-100 group-hover:bg-blue-200'
+                          }`}>
+                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                          </div>
+                          
+                          <div>
+                            <h3 className='text-xl font-semibold text-gray-900 mb-2'>
+                              {dragActive ? 'Drop your file here' : 'Drop your dataset here'}
+                            </h3>
+                            <p className='text-gray-500 text-sm'>
+                              or <span className='text-blue-600 font-medium'>browse files</span> from your computer
+                            </p>
+                          </div>
+
+                          <div className='flex items-center justify-center space-x-6 pt-4'>
+                            <div className='flex items-center space-x-2 text-sm text-gray-600'>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>CSV</span>
+                            </div>
+                            <div className='flex items-center space-x-2 text-sm text-gray-600'>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>JSON</span>
+                            </div>
+                            <div className='flex items-center space-x-2 text-sm text-gray-600'>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>Excel</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File Selected/Upload Progress */}
+                    {(selectedFile || isUploading) && !uploadSuccess && (
+                      <div className='border-2 border-blue-200 bg-blue-50 rounded-xl p-8 text-center'>
+                        <div className='space-y-6'>
+                          <div className='mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center'>
+                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          
+                          {selectedFile && (
+                            <div>
+                              <h3 className='text-lg font-semibold text-gray-900 mb-1'>
+                                {selectedFile.name}
+                              </h3>
+                              <p className='text-sm text-gray-600'>
+                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          )}
+
+                          {isUploading && (
+                            <div className='space-y-3'>
+                              <div className='text-sm font-medium text-blue-700'>
+                                Uploading... {Math.round(uploadProgress)}%
+                              </div>
+                              <div className='w-full bg-blue-200 rounded-full h-2'>
+                                <div 
+                                  className='bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out'
+                                  style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload Success */}
+                    {uploadSuccess && (
+                      <div className='border-2 border-green-200 bg-green-50 rounded-xl p-8 text-center'>
+                        <div className='space-y-4'>
+                          <div className='mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center'>
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          
+                          <div>
+                            <h3 className='text-lg font-semibold text-green-900 mb-1'>
+                              Upload Successful!
+                            </h3>
+                            <p className='text-sm text-green-700'>
+                              Your dataset has been processed and is ready to use.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload Error */}
+                    {uploadError && (
+                      <div className='mt-4 p-4 bg-red-50 border border-red-200 rounded-lg'>
+                        <div className='flex items-center'>
+                          <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className='text-red-700 font-medium'>{uploadError}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <input 
+                      id="file-input"
+                      type="file" 
+                      className='hidden'
+                      accept=".csv,.json,.xlsx,.xls"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleFileSelect(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* File Requirements */}
+                  <div className='mt-8 p-4 bg-gray-50 rounded-xl'>
+                    <h4 className='font-semibold text-gray-900 mb-3 flex items-center'>
+                      <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      File Requirements
+                    </h4>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600'>
+                      <div className='flex items-start space-x-2'>
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Maximum file size: 50MB</span>
+                      </div>
+                      <div className='flex items-start space-x-2'>
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Supported formats: CSV, JSON, Excel</span>
+                      </div>
+                      <div className='flex items-start space-x-2'>
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Include headers for better parsing</span>
+                      </div>
+                      <div className='flex items-start space-x-2'>
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Clean data recommended</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className='bg-gray-50 px-8 py-6 flex items-center justify-between'>
+                  <div className='text-sm text-gray-500'>
+                    Your data is processed securely and privately
+                  </div>
+                  <div className='flex space-x-3'>
+                    <button 
+                      onClick={() => setModVis(false)}
+                      className='px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium'
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => document.getElementById('file-input').click()}
+                      className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium'
+                    >
+                      Select File
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
             </div>
             : null
         }
