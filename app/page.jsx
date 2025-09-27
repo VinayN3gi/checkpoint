@@ -137,6 +137,7 @@ export default function DashboardPage() {
   const [isStreaming, setIsStreaming] = useState(false);
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [modVis, setModVis] = useState(false);
 
   const handleSend = async () => {
     if (!query.trim() || loading) return;
@@ -266,8 +267,23 @@ export default function DashboardPage() {
       className="min-h-screen"
     >
       <div className="flex flex-col h-screen bg-gray-100 p-4 space-y-4">
-        
-        <DashboardHeader toggleChat={toggleChat} />
+
+        <DashboardHeader setModVis={() => { setModVis(true); }} toggleChat={toggleChat} />
+
+        {
+          modVis === true
+            ? <div className='absolute w-[100vw] h-[100vh] z-60 bg-black/54 flex justify-center items-center'>
+              <div className='bg-white w-[50%] h-[50%] rounded-lg text-black flex justify-center items-center'>
+                <div className='text-center'>
+                  <h3>Upload Dataset</h3>
+                  <br />
+                  <input className='bg-gray-400 p-4 rounded-lg cursor-pointer' type="file"
+                    onChange={() => { setModVis("done") }} />
+                </div>
+              </div>
+            </div>
+            : null
+        }
 
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* LEFT */}
@@ -321,20 +337,24 @@ export default function DashboardPage() {
             </div>
 
             {/* TABLES SECTION */}
-            <div className="flex-1 px-4 py-4 overflow-y-auto scrollbar-hide">
-              <ul className="space-y-2">
-                {Object.keys(datasets).map((table) => (
-                  <li
-                    key={table}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, table)}
-                    className="p-2 rounded-md cursor-pointer font-medium bg-gray-200/20 hover:bg-blue-50 transition-colors duration-200 text-gray-700 shadow-sm"
-                  >
-                    {table}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {
+              modVis === "done"
+                ? <div className="flex-1 px-4 py-4 overflow-y-auto scrollbar-hide">
+                  <ul className="space-y-2">
+                    {Object.keys(datasets).map((table) => (
+                      <li
+                        key={table}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, table)}
+                        className="p-2 rounded-md cursor-pointer font-medium bg-gray-200/20 hover:bg-blue-50 transition-colors duration-200 text-gray-700 shadow-sm"
+                      >
+                        {table}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                : null
+            }
           </aside>
 
           {/* CENTER */}
