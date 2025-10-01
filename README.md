@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Logistics Intelligence Dashboard (Website)
 
-## Getting Started
+An **AI-powered logistics management and analytics platform** that helps companies manage their fleets, drivers, cargo, and safety reports – all in one place.  
+Built with **Next.js, React, TailwindCSS, and Firebase**, the dashboard is fully customizable with drag-and-drop widgets, resizable graphs, and AI-driven insights.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Data & Dashboard
+- Upload structured data (CSV/Excel/API).
+- Automatic table generation:
+  - Drivers
+  - Locations
+  - Products / Cargo
+- Choose any table fields as **X / Y axes** for visualization.
+- Fully customizable dashboards:
+  - Drag-and-drop layout
+  - Resizable graphs
+  - Save and share dashboards
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Driver & Cargo Tracking
+- Track driver journeys across checkpoints (A → B → C).
+- Real-time updates from the mobile app.
+- Safety alerts raised by drivers visible instantly on dashboard.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### AI Assistant
+- Fine-tuned **LLaMA 3 (1.1B)** model with **RAG pipeline**.
+- Natural language queries on uploaded data:
+  - “Show total petroleum delivered by Driver X this month.”
+  - “Compare safety incidents across locations.”
+- Data aggregation and reporting with plain-text questions.
 
-## Learn More
+### Safety & Compliance
+- Drivers can raise safety concerns (synced with dashboard).
+- Admins view and resolve issues in real-time.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Related Project: Driver Mobile App
+This dashboard is tightly integrated with the [**Driver Companion Mobile App**](https://github.com/your-org/driver-app).  
+The mobile app allows drivers to:
+- View cargo details
+- Update checkpoints
+- Raise safety alerts
+- Access an AI assistant for cargo-related questions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All updates from the mobile app are instantly reflected in this dashboard.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Screenshots
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Dashboard Overview
+![Dashboard Overview](assets/screenshots/image.png)
+
+### Custom Graph Builder
+![Custom Graph Builder](assets/screenshots/image2.png)
+
+### AI Query Example
+![AI Query Example](assets/screenshots/image3.png)
+
+
+---
+
+## Tech Stack
+- **Frontend:** Next.js, React, TailwindCSS
+- **Backend:** Firebase (Auth, Firestore, Hosting)
+- **AI:** Local LLaMA 3 (1.1B) + Retrieval-Augmented Generation (RAG)
+- **Charts & Visualization:** Custom Graph Components
