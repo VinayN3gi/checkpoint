@@ -38,7 +38,7 @@ Built with **Next.js, React, TailwindCSS, and Firebase**, the dashboard is fully
 ---
 
 ## Related Project: Driver Mobile App
-This dashboard is tightly integrated with the [**Driver Companion Mobile App**](https://github.com/your-org/driver-app).  
+This dashboard is tightly integrated with the [**Driver Companion Mobile App**](https://github.com/VinayN3gi/hackverseApp.git).  
 The mobile app allows drivers to:
 - View cargo details
 - Update checkpoints
