@@ -51,13 +51,10 @@ All updates from the mobile app are instantly reflected in this dashboard.
 
 ## Screenshots
 
-### Dashboard Overview
 ![Dashboard Overview](assets/screenshots/image.png)
 
-### Custom Graph Builder
 ![Custom Graph Builder](assets/screenshots/image2.png)
 
-### AI Query Example
 ![AI Query Example](assets/screenshots/image3.png)
 
 
